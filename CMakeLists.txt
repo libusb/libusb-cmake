@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # define the source root
-set(LIBUSB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/libusb/libusb")
+set(LIBUSB_ROOT "libusb/libusb")
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
 file(READ "${LIBUSB_ROOT}/version.h" VERSIONHEADERDATA)
@@ -107,39 +107,39 @@ endif()
 
 # Handle all the common sources and compiler stuff
 target_sources(usb-1.0 PRIVATE
-    ${LIBUSB_ROOT}/core.c
-    ${LIBUSB_ROOT}/descriptor.c
-    ${LIBUSB_ROOT}/hotplug.c
-    ${LIBUSB_ROOT}/io.c
-    ${LIBUSB_ROOT}/sync.c
-    ${LIBUSB_ROOT}/strerror.c
-    ${LIBUSB_ROOT}/libusb.h
-    ${LIBUSB_ROOT}/libusbi.h
-    ${LIBUSB_ROOT}/version_nano.h
-    ${LIBUSB_ROOT}/version.h
-    ${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h
+    "${LIBUSB_ROOT}/core.c"
+    "${LIBUSB_ROOT}/descriptor.c"
+    "${LIBUSB_ROOT}/hotplug.c"
+    "${LIBUSB_ROOT}/io.c"
+    "${LIBUSB_ROOT}/sync.c"
+    "${LIBUSB_ROOT}/strerror.c"
+    "${LIBUSB_ROOT}/libusb.h"
+    "${LIBUSB_ROOT}/libusbi.h"
+    "${LIBUSB_ROOT}/version_nano.h"
+    "${LIBUSB_ROOT}/version.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h"
 )
 target_include_directories(usb-1.0
     PUBLIC
-        ${LIBUSB_ROOT}
+        "${LIBUSB_ROOT}"
     PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}/gen_include
-        ${LIBUSB_ROOT}/os
+        "${CMAKE_CURRENT_BINARY_DIR}/gen_include"
+        "${LIBUSB_ROOT}/os"
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources(usb-1.0 PRIVATE
-        ${LIBUSB_ROOT}/os/windows_common.c
-        ${LIBUSB_ROOT}/os/windows_usbdk.c
-        ${LIBUSB_ROOT}/os/windows_winusb.c
-        ${LIBUSB_ROOT}/os/events_windows.c
-        ${LIBUSB_ROOT}/os/threads_windows.c
-        ${LIBUSB_ROOT}/os/events_windows.h
-        ${LIBUSB_ROOT}/os/threads_windows.h
-        ${LIBUSB_ROOT}/os/windows_common.h
-        ${LIBUSB_ROOT}/os/windows_usbdk.h
-        ${LIBUSB_ROOT}/os/windows_winusb.h
-        ${LIBUSB_ROOT}/libusb-1.0.def
+        "${LIBUSB_ROOT}/os/windows_common.c"
+        "${LIBUSB_ROOT}/os/windows_usbdk.c"
+        "${LIBUSB_ROOT}/os/windows_winusb.c"
+        "${LIBUSB_ROOT}/os/events_windows.c"
+        "${LIBUSB_ROOT}/os/threads_windows.c"
+        "${LIBUSB_ROOT}/os/events_windows.h"
+        "${LIBUSB_ROOT}/os/threads_windows.h"
+        "${LIBUSB_ROOT}/os/windows_common.h"
+        "${LIBUSB_ROOT}/os/windows_usbdk.h"
+        "${LIBUSB_ROOT}/os/windows_winusb.h"
+        "${LIBUSB_ROOT}/libusb-1.0.def"
         $<$<C_COMPILER_ID:MSVC>:${LIBUSB_ROOT}/libusb-1.0.rc>
     )
     target_compile_definitions(usb-1.0 PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
@@ -147,35 +147,36 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 else()
     # If it's not Windows then it's a POSIX system
     target_sources(usb-1.0 PRIVATE
-        ${LIBUSB_ROOT}/os/events_posix.c
-        ${LIBUSB_ROOT}/os/threads_posix.c
-        ${LIBUSB_ROOT}/os/events_posix.h
-        ${LIBUSB_ROOT}/os/threads_posix.h
+        "${LIBUSB_ROOT}/os/events_posix.c"
+        "${LIBUSB_ROOT}/os/threads_posix.c"
+        "${LIBUSB_ROOT}/os/events_posix.h"
+        "${LIBUSB_ROOT}/os/threads_posix.h"
     )
     # For the Linux based OSs - This should work
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
         target_sources(usb-1.0 PRIVATE
-            ${LIBUSB_ROOT}/os/linux_usbfs.c
-            ${LIBUSB_ROOT}/os/linux_usbfs.h
+            "${LIBUSB_ROOT}/os/linux_usbfs.c"
+            "${LIBUSB_ROOT}/os/linux_usbfs.h"
         )
         if(CMAKE_SYSTEM_NAME STREQUAL "Android")
             target_sources(usb-1.0 PRIVATE
-                ${LIBUSB_ROOT}/os/linux_netlink.c
+                "${LIBUSB_ROOT}/os/linux_netlink.c"
             )
             target_link_libraries(usb-1.0 PRIVATE android log)
         else()
             # Normal Linux
+            find_package(Threads REQUIRED)
             target_sources(usb-1.0 PRIVATE
-                ${LIBUSB_ROOT}/os/linux_udev.c
+                "${LIBUSB_ROOT}/os/linux_udev.c"
             )
-            target_link_libraries(usb-1.0 PRIVATE udev pthread)
+            target_link_libraries(usb-1.0 PRIVATE udev Threads::Threads)
             target_compile_definitions(usb-1.0 PRIVATE HAVE_LIBUDEV=1)
         endif()
     elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         # Or MacOS/iOS etc etc to anyone who does not know
         target_sources(usb-1.0 PRIVATE
-            ${LIBUSB_ROOT}/os/darwin_usb.c
-            ${LIBUSB_ROOT}/os/darwin_usb.h
+            "${LIBUSB_ROOT}/os/darwin_usb.c"
+            "${LIBUSB_ROOT}/os/darwin_usb.h"
         )
         target_link_libraries(usb-1.0 PRIVATE
             "-framework Foundation"
@@ -184,11 +185,11 @@ else()
         )
     elseif(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
         target_sources(usb-1.0 PRIVATE
-            ${LIBUSB_ROOT}/os/netbsd_usb.c
+            "${LIBUSB_ROOT}/os/netbsd_usb.c"
         )
     elseif(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
         target_sources(usb-1.0 PRIVATE
-            ${LIBUSB_ROOT}/os/openbsd_usb.c
+            "${LIBUSB_ROOT}/os/openbsd_usb.c"
         )
     else()
         message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
@@ -196,9 +197,12 @@ else()
 endif()
 
 if(LIBUSB_BUILD_TESTING)
-    add_executable(testlib ${LIBUSB_ROOT}/../tests/testlib.c ${LIBUSB_ROOT}/../tests/stress.c)
+    add_executable(testlib
+        "${LIBUSB_ROOT}/../tests/testlib.c"
+        "${LIBUSB_ROOT}/../tests/stress.c"
+    )
     target_link_libraries(testlib PRIVATE usb-1.0)
-    target_include_directories(testlib PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include )
+    target_include_directories(testlib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     add_test(testlib COMMAND testlib)
 endif()
 
@@ -206,49 +210,52 @@ if(LIBUSB_BUILD_EXAMPLES)
 
     if(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
         add_library(getoptMSVC STATIC
-            ${LIBUSB_ROOT}/../msvc/getopt/getopt.h
-            ${LIBUSB_ROOT}/../msvc/getopt/getopt.c
-            ${LIBUSB_ROOT}/../msvc/getopt/getopt1.c
+            "${LIBUSB_ROOT}/../msvc/getopt/getopt.h"
+            "${LIBUSB_ROOT}/../msvc/getopt/getopt.c"
+            "${LIBUSB_ROOT}/../msvc/getopt/getopt1.c"
         )
         # Need to pass HAVE_CONFIG_H so getopt.h can load the config header
         target_compile_definitions(getoptMSVC PRIVATE HAVE_CONFIG_H)
         target_include_directories(getoptMSVC
             PUBLIC "${LIBUSB_ROOT}/../msvc/getopt/"
-            PUBLIC "C:/temp/"
-            PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include
+            PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include"
         )
     endif()
 
-    add_executable(listdevs ${LIBUSB_ROOT}/../examples/listdevs.c)
-    target_include_directories(listdevs PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include)
+    add_executable(listdevs "${LIBUSB_ROOT}/../examples/listdevs.c")
+    target_include_directories(listdevs PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(listdevs PRIVATE usb-1.0)
 
-    add_executable(dpfp ${LIBUSB_ROOT}/../examples/dpfp.c)
-    target_include_directories(dpfp PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include)
+    add_executable(dpfp "${LIBUSB_ROOT}/../examples/dpfp.c")
+    target_include_directories(dpfp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(dpfp PRIVATE usb-1.0)
 
-    add_executable(hotplugtest ${LIBUSB_ROOT}/../examples/hotplugtest.c)
-    target_include_directories(hotplugtest PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include)
+    add_executable(hotplugtest "${LIBUSB_ROOT}/../examples/hotplugtest.c")
+    target_include_directories(hotplugtest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(hotplugtest PRIVATE usb-1.0)
 
-    add_executable(fxload ${LIBUSB_ROOT}/../examples/fxload.c ${LIBUSB_ROOT}/../examples/ezusb.c ${LIBUSB_ROOT}/../examples/ezusb.h)
-    target_include_directories(fxload PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include )
+    add_executable(fxload 
+        "${LIBUSB_ROOT}/../examples/fxload.c"
+        "${LIBUSB_ROOT}/../examples/ezusb.c"
+        "${LIBUSB_ROOT}/../examples/ezusb.h"
+    )
+    target_include_directories(fxload PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(fxload PRIVATE usb-1.0 $<$<C_COMPILER_ID:MSVC>:getoptMSVC> )
 
     add_executable(testlibusb ${LIBUSB_ROOT}/../examples/testlibusb.c)
-    target_include_directories(testlibusb PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include )
+    target_include_directories(testlibusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(testlibusb PRIVATE usb-1.0)
 
-    add_executable(sam3u_benchmark ${LIBUSB_ROOT}/../examples/sam3u_benchmark.c)
-    target_include_directories(sam3u_benchmark PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include )
+    add_executable(sam3u_benchmark "${LIBUSB_ROOT}/../examples/sam3u_benchmark.c")
+    target_include_directories(sam3u_benchmark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(sam3u_benchmark PRIVATE usb-1.0)
 
-    add_executable(xusb ${LIBUSB_ROOT}/../examples/xusb.c)
-    target_include_directories(xusb PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/gen_include )
+    add_executable(xusb "${LIBUSB_ROOT}/../examples/xusb.c")
+    target_include_directories(xusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(xusb PRIVATE usb-1.0)
 endif()
 
 if(LIBUSB_INSTALL_TARGETS)
     install(TARGETS usb-1.0)
-    install(FILES ${LIBUSB_ROOT}/libusb.h DESTINATION include/libusb-1.0)
+    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "include/libusb-1.0")
 endif()
