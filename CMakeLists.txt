@@ -120,12 +120,16 @@ target_sources(usb-1.0 PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h"
 )
 target_include_directories(usb-1.0
-    PUBLIC
-        "${LIBUSB_ROOT}"
     PRIVATE
         "${CMAKE_CURRENT_BINARY_DIR}/gen_include"
         "${LIBUSB_ROOT}/os"
 )
+
+if (LIBUSB_TARGETS_INCLUDE_USING_SYSTEM)
+    target_include_directories(usb-1.0 SYSTEM PUBLIC "${LIBUSB_ROOT}")
+else()
+    target_include_directories(usb-1.0 PUBLIC "${LIBUSB_ROOT}")
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources(usb-1.0 PRIVATE
@@ -203,6 +207,7 @@ if(LIBUSB_BUILD_TESTING)
     )
     target_link_libraries(testlib PRIVATE usb-1.0)
     target_include_directories(testlib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_compile_definitions(testlib PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
     add_test(testlib COMMAND testlib)
 endif()
 
@@ -225,34 +230,41 @@ if(LIBUSB_BUILD_EXAMPLES)
     add_executable(listdevs "${LIBUSB_ROOT}/../examples/listdevs.c")
     target_include_directories(listdevs PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(listdevs PRIVATE usb-1.0)
+    target_compile_definitions(listdevs PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(dpfp "${LIBUSB_ROOT}/../examples/dpfp.c")
     target_include_directories(dpfp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(dpfp PRIVATE usb-1.0)
+    target_compile_definitions(dpfp PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(hotplugtest "${LIBUSB_ROOT}/../examples/hotplugtest.c")
     target_include_directories(hotplugtest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(hotplugtest PRIVATE usb-1.0)
+    target_compile_definitions(hotplugtest PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
-    add_executable(fxload 
+    add_executable(fxload
         "${LIBUSB_ROOT}/../examples/fxload.c"
         "${LIBUSB_ROOT}/../examples/ezusb.c"
         "${LIBUSB_ROOT}/../examples/ezusb.h"
     )
     target_include_directories(fxload PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(fxload PRIVATE usb-1.0 $<$<C_COMPILER_ID:MSVC>:getoptMSVC> )
+    target_compile_definitions(fxload PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(testlibusb ${LIBUSB_ROOT}/../examples/testlibusb.c)
     target_include_directories(testlibusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(testlibusb PRIVATE usb-1.0)
+    target_compile_definitions(testlibusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(sam3u_benchmark "${LIBUSB_ROOT}/../examples/sam3u_benchmark.c")
     target_include_directories(sam3u_benchmark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(sam3u_benchmark PRIVATE usb-1.0)
+    target_compile_definitions(sam3u_benchmark PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(xusb "${LIBUSB_ROOT}/../examples/xusb.c")
     target_include_directories(xusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
     target_link_libraries(xusb PRIVATE usb-1.0)
+    target_compile_definitions(xusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 endif()
 
 if(LIBUSB_INSTALL_TARGETS)
