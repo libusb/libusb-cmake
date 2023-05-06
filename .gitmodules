@@ -1,3 +1,0 @@
-[submodule "libusb"]
-	path = libusb
-	url = ../libusb.git
