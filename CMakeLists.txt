@@ -103,6 +103,10 @@ else()
     add_library(usb-1.0 STATIC)
 endif()
 
+set_target_properties(usb-1.0 PROPERTIES
+    PREFIX lib # to be consistent with mainline libusb build system(s)
+)
+
 # common sources
 target_sources(usb-1.0 PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h"
