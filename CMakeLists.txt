@@ -150,7 +150,7 @@ if(WIN32)
     target_compile_definitions(usb-1.0 PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
     target_link_libraries(usb-1.0 PRIVATE windowsapp)
 else()
-    # common POSIX/non-Windows system
+    # common POSIX/non-Windows sources
     target_sources(usb-1.0 PRIVATE
         "${LIBUSB_ROOT}/os/events_posix.c"
         "${LIBUSB_ROOT}/os/events_posix.h"
