@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-# define the source root
 set(LIBUSB_ROOT "libusb/libusb")
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
