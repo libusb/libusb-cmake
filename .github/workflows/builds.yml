@@ -38,11 +38,13 @@ jobs:
                 install/shared/include/libusb-1.0/libusb.h"
         fail: true
     - name: Test Shared
+      if: always()
       working-directory: build/shared
-      run: ctest --output-junit test_shared.xml
+      run: ctest --output-junit test_shared.xml ---no-compress-output
     - name: Test Static
+      if: always()
       working-directory: build/static
-      run: ctest --output-junit test_static.xml
+      run: ctest --output-junit test_static.xml --no-compress-output
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v3
