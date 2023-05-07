@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(LIBUSB_ROOT "libusb/libusb")
+get_filename_component(LIBUSB_ROOT "libusb/libusb" ABSOLUTE)
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
 file(READ "${LIBUSB_ROOT}/version.h" VERSIONHEADERDATA)
@@ -21,7 +21,7 @@ project(usb-1.0
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
 # e.g. Logging LIBUSB_ENABLE_LOGGING mapps to ENABLE_LOGGING in the config, keeps it clean
-function(GenerateConfigFile)
+function(generate_config_file)
     include(CheckIncludeFiles)
     include(CheckFunctionExists)
     include(CheckSymbolExists)
@@ -70,8 +70,8 @@ function(GenerateConfigFile)
         check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
     endif()
 
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
-    configure_file(config.h.in "${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h" @ONLY)
+    file(MAKE_DIRECTORY "${LIBUSB_GEN_INCLUDES}")
+    configure_file(config.h.in "${LIBUSB_GEN_INCLUDES}/config.h" @ONLY)
 endfunction()
 
 if(BUILD_SHARED_LIBS)
@@ -94,7 +94,8 @@ option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" O
 option(LIBUSB_ENABLE_LOGGING "Enable Logging" ON)
 option(LIBUSB_ENABLE_DEBUG_LOGGING "Enable Debug Logging" OFF)
 
-GenerateConfigFile()
+set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+generate_config_file()
 
 if(LIBUSB_BUILD_SHARED_LIBS)
     add_library(usb-1.0 SHARED)
@@ -108,7 +109,7 @@ set_target_properties(usb-1.0 PROPERTIES
 
 # common sources
 target_sources(usb-1.0 PRIVATE
-    "${CMAKE_CURRENT_BINARY_DIR}/gen_include/config.h"
+    "${LIBUSB_GEN_INCLUDES}/config.h"
     "${LIBUSB_ROOT}/core.c"
     "${LIBUSB_ROOT}/descriptor.c"
     "${LIBUSB_ROOT}/hotplug.c"
@@ -122,7 +123,7 @@ target_sources(usb-1.0 PRIVATE
 )
 target_include_directories(usb-1.0
     PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/gen_include"
+        "${LIBUSB_GEN_INCLUDES}"
         "${LIBUSB_ROOT}/os"
 )
 
@@ -197,14 +198,7 @@ else()
 endif()
 
 if(LIBUSB_BUILD_TESTING)
-    add_executable(testlib
-        "${LIBUSB_ROOT}/../tests/stress.c"
-        "${LIBUSB_ROOT}/../tests/testlib.c"
-    )
-    target_link_libraries(testlib PRIVATE usb-1.0)
-    target_include_directories(testlib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
-    target_compile_definitions(testlib PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-    add_test(NAME testlib COMMAND testlib)
+    add_subdirectory(tests)
 endif()
 
 if(LIBUSB_BUILD_EXAMPLES)
@@ -218,22 +212,22 @@ if(LIBUSB_BUILD_EXAMPLES)
         target_compile_definitions(getoptMSVC PRIVATE HAVE_CONFIG_H)
         target_include_directories(getoptMSVC
             PUBLIC "${LIBUSB_ROOT}/../msvc/getopt/"
-            PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include"
+            PRIVATE "${LIBUSB_GEN_INCLUDES}"
         )
     endif()
 
     add_executable(listdevs "${LIBUSB_ROOT}/../examples/listdevs.c")
-    target_include_directories(listdevs PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(listdevs PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(listdevs PRIVATE usb-1.0)
     target_compile_definitions(listdevs PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(dpfp "${LIBUSB_ROOT}/../examples/dpfp.c")
-    target_include_directories(dpfp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(dpfp PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(dpfp PRIVATE usb-1.0)
     target_compile_definitions(dpfp PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(hotplugtest "${LIBUSB_ROOT}/../examples/hotplugtest.c")
-    target_include_directories(hotplugtest PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(hotplugtest PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(hotplugtest PRIVATE usb-1.0)
     target_compile_definitions(hotplugtest PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
@@ -242,22 +236,22 @@ if(LIBUSB_BUILD_EXAMPLES)
         "${LIBUSB_ROOT}/../examples/ezusb.h"
         "${LIBUSB_ROOT}/../examples/fxload.c"
     )
-    target_include_directories(fxload PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(fxload PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(fxload PRIVATE usb-1.0 $<$<C_COMPILER_ID:MSVC>:getoptMSVC> )
     target_compile_definitions(fxload PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(testlibusb ${LIBUSB_ROOT}/../examples/testlibusb.c)
-    target_include_directories(testlibusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(testlibusb PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(testlibusb PRIVATE usb-1.0)
     target_compile_definitions(testlibusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(sam3u_benchmark "${LIBUSB_ROOT}/../examples/sam3u_benchmark.c")
-    target_include_directories(sam3u_benchmark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(sam3u_benchmark PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(sam3u_benchmark PRIVATE usb-1.0)
     target_compile_definitions(sam3u_benchmark PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
     add_executable(xusb "${LIBUSB_ROOT}/../examples/xusb.c")
-    target_include_directories(xusb PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
+    target_include_directories(xusb PRIVATE "${LIBUSB_GEN_INCLUDES}")
     target_link_libraries(xusb PRIVATE usb-1.0)
     target_compile_definitions(xusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 endif()
