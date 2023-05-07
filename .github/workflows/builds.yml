@@ -40,11 +40,11 @@ jobs:
     - name: Test Shared
       if: always()
       working-directory: build/shared
-      run: ctest --output-junit test_shared.xml ---no-compress-output
+      run: ctest --output-junit test_shared.xml ---no-compress-output --output-on-failure
     - name: Test Static
       if: always()
       working-directory: build/static
-      run: ctest --output-junit test_static.xml --no-compress-output
+      run: ctest --output-junit test_static.xml --no-compress-output --output-on-failure
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v3
