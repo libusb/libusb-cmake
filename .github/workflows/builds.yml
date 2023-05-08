@@ -9,6 +9,9 @@ on:
 jobs:
   ubuntu-build:
     runs-on: ubuntu-latest
+    env:
+      # set_option known to fail on Github Actions
+      COMMON_CTEST_ARGS: ---no-compress-output --output-on-failure -E "^set_option$"
 
     steps:
     - uses: actions/checkout@v3
@@ -40,11 +43,11 @@ jobs:
     - name: Test Shared
       if: always()
       working-directory: build/shared
-      run: ctest --output-junit test_shared.xml ---no-compress-output --output-on-failure
+      run: ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Test Static
       if: always()
       working-directory: build/static
-      run: ctest --output-junit test_static.xml --no-compress-output --output-on-failure
+      run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v3
