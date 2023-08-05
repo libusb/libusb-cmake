@@ -1380,6 +1380,7 @@ static int set_composite_interface(struct libusb_context *ctx, struct libusb_dev
 	int interface_number;
 	const char *mi_str;
 	int iadi, iadintfi;
+	char* endptr;
 	struct libusb_interface_association_descriptor_array *iad_array;
 	const struct libusb_interface_association_descriptor *iad;
 
@@ -1387,9 +1388,16 @@ static int set_composite_interface(struct libusb_context *ctx, struct libusb_dev
 	// devices will have only MI_00 & MI_03 for instance), we retrieve the actual
 	// interface number from the path's MI value
 	mi_str = strstr(device_id, "MI_");
-	if ((mi_str != NULL) && isdigit((unsigned char)mi_str[3]) && isdigit((unsigned char)mi_str[4])) {
-		interface_number = ((mi_str[3] - '0') * 10) + (mi_str[4] - '0');
-	} else {
+
+	endptr = NULL;
+	// This initialization, while redundant, is needed to make MSVC happy
+	interface_number = -1;
+
+	if (mi_str != NULL) {
+		interface_number = strtoul(&mi_str[3], &endptr, 16);
+	}
+
+	if (mi_str == NULL || endptr - &mi_str[3] != 2) {
 		usbi_warn(ctx, "failure to read interface number for %s, using default value", device_id);
 		interface_number = 0;
 	}
@@ -4417,15 +4425,12 @@ static enum libusb_transfer_status hid_copy_transfer_data(int sub_api, struct us
 				}
 
 				if (transfer_priv->hid_buffer[0] == 0) {
-					length--;
 					memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer + 1, length);
 				} else {
 					memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer, length);
 				}
 			}
 			transfer_priv->hid_dest = NULL;
-		} else if ((length > 0) && (transfer_priv->hid_buffer[0] == 0)) {
-			length--;
 		}
 		// For write, we just need to free the hid buffer
 		safe_free(transfer_priv->hid_buffer);
