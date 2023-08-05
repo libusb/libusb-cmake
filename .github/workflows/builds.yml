@@ -57,9 +57,57 @@ jobs:
           build/shared/test_shared.xml
           build/static/test_static.xml
 
+
+  macos-buid:
+    runs-on: macos-latest
+    env:
+      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: src
+    - name: Install dependencies
+      run: brew install ninja
+    - name: Configure
+      run: |
+        rm -rf build install
+        cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+    - name: Build Shared
+      working-directory: build/shared
+      run: ninja install
+    - name: Build Static
+      working-directory: build/static
+      run: ninja install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v2
+      with:
+        files: "install/shared/lib/libusb-1.0.dylib, \
+                install/shared/include/libusb-1.0/libusb.h, \
+                install/static/lib/libusb-1.0.a, \
+                install/shared/include/libusb-1.0/libusb.h"
+        fail: true
+    - name: Test Shared
+      if: always()
+      working-directory: build/shared
+      run: ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Test Static
+      if: always()
+      working-directory: build/static
+      run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: Test Results macOS
+        path: |
+          build/shared/test_shared.xml
+          build/static/test_static.xml
+
   publish-test-results:
     name: "Publish Tests Results"
-    needs: ubuntu-build
+    needs: [ubuntu-build, macos-buid]
     runs-on: ubuntu-latest
     permissions:
       checks: write
