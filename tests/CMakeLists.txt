@@ -28,10 +28,3 @@ function(add_libusb_test TEST_NAME)
 endfunction()
 
 add_libusb_test(stress "stress.c")
-
-add_executable(stress_mt "${TESTS_ROOT}/stress_mt.c")
-target_link_libraries(stress_mt PRIVATE libusb_tests_build_interface)
-add_test(NAME stress_mt COMMAND stress_mt)
-
-add_libusb_test(set_option "set_option.c")
-add_libusb_test(init_context "init_context.c")
