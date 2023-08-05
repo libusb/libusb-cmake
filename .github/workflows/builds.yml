@@ -105,9 +105,118 @@ jobs:
           build/shared/test_shared.xml
           build/static/test_static.xml
 
+
+  windows-msvc-buid:
+    runs-on: windows-latest
+    env:
+      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
+      VCVARS64_PATH: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: src
+    - name: Install dependencies
+      run: choco install ninja
+    - name: Configure Visual Studio
+      run: |
+        cmake -B build/msvc -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/msvc -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+    - name: Configure NMake/Ninja
+      shell: cmd
+      run: |
+        call "${{ env.VCVARS64_PATH }}"
+        cmake -G"NMake Makefiles" -B build\nmake_shared -DCMAKE_INSTALL_PREFIX=install/nmake_shared -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -G"NMake Makefiles" -B build\nmake_static -DCMAKE_INSTALL_PREFIX=install/nmake_static -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+        cmake -GNinja -B build\ninja_shared -DCMAKE_INSTALL_PREFIX=install/ninja_shared -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -GNinja -B build\ninja_static -DCMAKE_INSTALL_PREFIX=install/ninja_static -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+    - name: Build Visual Studio
+      working-directory: build/msvc
+      run: cmake --build . --config RelWithDebInfo --target install
+    - name: Build NMake Shared
+      working-directory: build/nmake_shared
+      shell: cmd
+      run: |
+        call "${{ env.VCVARS64_PATH }}"
+        nmake install
+    - name: Build NMake Static
+      working-directory: build/nmake_static
+      shell: cmd
+      run: |
+        call "${{ env.VCVARS64_PATH }}"
+        nmake install
+    - name: Build Ninja Shared
+      working-directory: build/ninja_shared
+      shell: cmd
+      run: |
+        call "${{ env.VCVARS64_PATH }}"
+        ninja install
+    - name: Build Ninja Static
+      working-directory: build/ninja_static
+      shell: cmd
+      run: |
+        call "${{ env.VCVARS64_PATH }}"
+        ninja install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v2
+      with:
+        files: "install/msvc/lib/usb-1.0.lib, \
+                install/msvc/bin/libusb-1.0.dll, \
+                install/msvc/include/libusb-1.0/libusb.h, \
+                install/nmake_shared/lib/usb-1.0.lib, \
+                install/nmake_shared/bin/libusb-1.0.dll, \
+                install/nmake_shared/include/libusb-1.0/libusb.h, \
+                install/nmake_static/lib/libusb-1.0.lib, \
+                install/nmake_static/include/libusb-1.0/libusb.h, \
+                install/ninja_shared/lib/usb-1.0.lib, \
+                install/ninja_shared/bin/libusb-1.0.dll, \
+                install/ninja_shared/include/libusb-1.0/libusb.h, \
+                install/ninja_static/lib/libusb-1.0.lib, \
+                install/ninja_static/include/libusb-1.0/libusb.h"
+        fail: true
+    - name: Test Visual Studio
+      if: always()
+      working-directory: build/msvc
+      shell: cmd
+      run: |
+        set PATH=%PATH%;${{ github.workspace }}\install\msvc\bin
+        ctest -C RelWithDebInfo --output-junit test_msvc.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Test NMake Shared
+      if: always()
+      working-directory: build/nmake_shared
+      shell: cmd
+      run: |
+        set PATH=%PATH%;${{ github.workspace }}\install\nmake_shared\bin
+        ctest --output-junit test_nmake_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Test NMake Static
+      if: always()
+      working-directory: build/nmake_static
+      run: ctest --output-junit test_nmake_static.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Test Ninja Shared
+      if: always()
+      working-directory: build/ninja_shared
+      shell: cmd
+      run: |
+        set PATH=%PATH%;${{ github.workspace }}\install\ninja_shared\bin
+        ctest --output-junit test_ninja_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Test Ninja Static
+      if: always()
+      working-directory: build/ninja_static
+      run: ctest --output-junit test_ninja_static.xml ${{ env.COMMON_CTEST_ARGS }}
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: Test Results MSVC
+        path: |
+          build/msvc/test_msvc.xml
+          build/nmake_shared/test_nmake_shared.xml
+          build/nmake_static/test_nmake_static.xml
+          build/ninja_shared/test_ninja_shared.xml
+          build/ninja_static/test_ninja_static.xml
+
   publish-test-results:
     name: "Publish Tests Results"
-    needs: [ubuntu-build, macos-buid]
+    needs: [ubuntu-build, macos-buid, windows-msvc-buid]
     runs-on: ubuntu-latest
     permissions:
       checks: write
