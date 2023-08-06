@@ -202,58 +202,7 @@ if(LIBUSB_BUILD_TESTING)
 endif()
 
 if(LIBUSB_BUILD_EXAMPLES)
-    if(MSVC)
-        add_library(getoptMSVC STATIC
-            "${LIBUSB_ROOT}/../msvc/getopt/getopt.c"
-            "${LIBUSB_ROOT}/../msvc/getopt/getopt.h"
-            "${LIBUSB_ROOT}/../msvc/getopt/getopt1.c"
-        )
-        # Need to pass HAVE_CONFIG_H so getopt.h can load the config header
-        target_compile_definitions(getoptMSVC PRIVATE HAVE_CONFIG_H)
-        target_include_directories(getoptMSVC
-            PUBLIC "${LIBUSB_ROOT}/../msvc/getopt/"
-            PRIVATE "${LIBUSB_GEN_INCLUDES}"
-        )
-    endif()
-
-    add_executable(listdevs "${LIBUSB_ROOT}/../examples/listdevs.c")
-    target_include_directories(listdevs PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(listdevs PRIVATE usb-1.0)
-    target_compile_definitions(listdevs PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(dpfp "${LIBUSB_ROOT}/../examples/dpfp.c")
-    target_include_directories(dpfp PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(dpfp PRIVATE usb-1.0)
-    target_compile_definitions(dpfp PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(hotplugtest "${LIBUSB_ROOT}/../examples/hotplugtest.c")
-    target_include_directories(hotplugtest PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(hotplugtest PRIVATE usb-1.0)
-    target_compile_definitions(hotplugtest PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(fxload
-        "${LIBUSB_ROOT}/../examples/ezusb.c"
-        "${LIBUSB_ROOT}/../examples/ezusb.h"
-        "${LIBUSB_ROOT}/../examples/fxload.c"
-    )
-    target_include_directories(fxload PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(fxload PRIVATE usb-1.0 $<$<C_COMPILER_ID:MSVC>:getoptMSVC> )
-    target_compile_definitions(fxload PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(testlibusb ${LIBUSB_ROOT}/../examples/testlibusb.c)
-    target_include_directories(testlibusb PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(testlibusb PRIVATE usb-1.0)
-    target_compile_definitions(testlibusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(sam3u_benchmark "${LIBUSB_ROOT}/../examples/sam3u_benchmark.c")
-    target_include_directories(sam3u_benchmark PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(sam3u_benchmark PRIVATE usb-1.0)
-    target_compile_definitions(sam3u_benchmark PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-
-    add_executable(xusb "${LIBUSB_ROOT}/../examples/xusb.c")
-    target_include_directories(xusb PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries(xusb PRIVATE usb-1.0)
-    target_compile_definitions(xusb PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
+    add_subdirectory(examples)
 endif()
 
 if(LIBUSB_INSTALL_TARGETS)
