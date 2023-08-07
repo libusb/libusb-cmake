@@ -38,7 +38,7 @@ jobs:
         files: "install/shared/lib/libusb-1.0.so, \
                 install/shared/include/libusb-1.0/libusb.h, \
                 install/static/lib/libusb-1.0.a, \
-                install/shared/include/libusb-1.0/libusb.h"
+                install/static/include/libusb-1.0/libusb.h"
         fail: true
     - name: Test Shared
       if: always()
@@ -86,7 +86,7 @@ jobs:
         files: "install/shared/lib/libusb-1.0.dylib, \
                 install/shared/include/libusb-1.0/libusb.h, \
                 install/static/lib/libusb-1.0.a, \
-                install/shared/include/libusb-1.0/libusb.h"
+                install/static/include/libusb-1.0/libusb.h"
         fail: true
     - name: Test Shared
       if: always()
@@ -214,9 +214,60 @@ jobs:
           build/ninja_shared/test_ninja_shared.xml
           build/ninja_static/test_ninja_static.xml
 
+
+  android-build:
+    runs-on: ubuntu-latest
+    env:
+      # ANDROID_NATIVE_API_LEVEL may be useful to set, but by default it is set to lowest supported by the NDK
+      # and that is enough for the purpose of this script
+      ANDROID_ARM32_CMAKE_OPTIONS: -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake -DANDROID_ABI=armeabi-v7a
+      ANDROID_ARM64_CMAKE_OPTIONS: -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: src
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install ninja-build
+    - name: Configure
+      run: |
+        rm -rf build install
+        cmake -B build/shared_32 -S src -GNinja ${{ env.ANDROID_ARM32_CMAKE_OPTIONS }} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared_32 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -B build/static_32 -S src -GNinja ${{ env.ANDROID_ARM32_CMAKE_OPTIONS }} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static_32 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+        cmake -B build/shared_64 -S src -GNinja ${{ env.ANDROID_ARM64_CMAKE_OPTIONS }} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared_64 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -B build/static_64 -S src -GNinja ${{ env.ANDROID_ARM64_CMAKE_OPTIONS }} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static_64 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+    - name: Build Shared ARM32
+      working-directory: build/shared_32
+      run: ninja install
+    - name: Build Static ARM32
+      working-directory: build/static_32
+      run: ninja install
+    - name: Build Shared ARM64
+      working-directory: build/shared_64
+      run: ninja install
+    - name: Build Static ARM64
+      working-directory: build/static_64
+      run: ninja install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v2
+      with:
+        files: "install/shared_32/lib/libusb-1.0.so, \
+                install/shared_32/include/libusb-1.0/libusb.h, \
+                install/static_32/lib/libusb-1.0.a, \
+                install/static_32/include/libusb-1.0/libusb.h, \
+                install/shared_64/lib/libusb-1.0.so, \
+                install/shared_64/include/libusb-1.0/libusb.h, \
+                install/static_64/lib/libusb-1.0.a, \
+                install/static_64/include/libusb-1.0/libusb.h"
+        fail: true
+    # No test runs/results: cross-compiled Android binaries are not runnable on a host machine
+
+
   publish-test-results:
     name: "Publish Tests Results"
-    needs: [ubuntu-build, macos-buid, windows-msvc-buid]
+    needs: [ubuntu-build, macos-buid, windows-msvc-buid, android-build]
     runs-on: ubuntu-latest
     permissions:
       checks: write
