@@ -93,6 +93,7 @@ option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" O
 
 option(LIBUSB_ENABLE_LOGGING "Enable Logging" ON)
 option(LIBUSB_ENABLE_DEBUG_LOGGING "Enable Debug Logging" OFF)
+option(LIBUSB_ENABLE_UDEV "Enable udev in linux" ON)
 
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
 generate_config_file()
@@ -160,13 +161,22 @@ else()
     )
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
         target_sources(usb-1.0 PRIVATE
-            "${LIBUSB_ROOT}/os/linux_udev.c"
-            "${LIBUSB_ROOT}/os/linux_usbfs.c"
-            "${LIBUSB_ROOT}/os/linux_usbfs.h"
+        "${LIBUSB_ROOT}/os/linux_usbfs.c"
+        "${LIBUSB_ROOT}/os/linux_usbfs.h"
         )
+        if(LIBUSB_ENABLE_UDEV)
+            target_sources(usb-1.0 PRIVATE
+                "${LIBUSB_ROOT}/os/linux_udev.c"
+            )
+            target_link_libraries(usb-1.0 PRIVATE udev)
+            target_compile_definitions(usb-1.0 PRIVATE HAVE_LIBUDEV=1)
+        else()
+            target_sources(usb-1.0 PRIVATE
+                "${LIBUSB_ROOT}/os/linux_netlink.c"
+            )
+        endif()
         find_package(Threads REQUIRED)
-        target_link_libraries(usb-1.0 PRIVATE udev Threads::Threads)
-        target_compile_definitions(usb-1.0 PRIVATE HAVE_LIBUDEV=1)
+        target_link_libraries(usb-1.0 PRIVATE Threads::Threads)
     elseif(ANDROID)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/linux_netlink.c"
