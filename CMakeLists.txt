@@ -166,7 +166,6 @@ else()
         "${LIBUSB_ROOT}/os/linux_usbfs.c"
         "${LIBUSB_ROOT}/os/linux_usbfs.h"
         )
-        target_compile_definitions(usb-1.0 PRIVATE -D_GNU_SOURCE)
         if(LIBUSB_ENABLE_UDEV)
             target_sources(usb-1.0 PRIVATE
                 "${LIBUSB_ROOT}/os/linux_udev.c"
