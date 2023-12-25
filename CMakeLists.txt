@@ -93,7 +93,9 @@ option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" O
 
 option(LIBUSB_ENABLE_LOGGING "Enable Logging" ON)
 option(LIBUSB_ENABLE_DEBUG_LOGGING "Enable Debug Logging" OFF)
-option(LIBUSB_ENABLE_UDEV "Enable udev in linux" ON)
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    option(LIBUSB_ENABLE_UDEV "Enable udev backend for device enumeration" ON)
+endif()
 
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
 generate_config_file()
