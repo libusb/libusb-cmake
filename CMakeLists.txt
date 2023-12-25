@@ -163,8 +163,8 @@ else()
     )
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
         target_sources(usb-1.0 PRIVATE
-        "${LIBUSB_ROOT}/os/linux_usbfs.c"
-        "${LIBUSB_ROOT}/os/linux_usbfs.h"
+            "${LIBUSB_ROOT}/os/linux_usbfs.c"
+            "${LIBUSB_ROOT}/os/linux_usbfs.h"
         )
         if(LIBUSB_ENABLE_UDEV)
             target_sources(usb-1.0 PRIVATE
