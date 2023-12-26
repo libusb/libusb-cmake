@@ -71,6 +71,9 @@ function(generate_config_file)
     endif()
 
     file(MAKE_DIRECTORY "${LIBUSB_GEN_INCLUDES}")
+    if(NOT MSVC)
+        set(_GNU_SOURCE TRUE)
+    endif()
     configure_file(config.h.in "${LIBUSB_GEN_INCLUDES}/config.h" @ONLY)
 endfunction()
 
