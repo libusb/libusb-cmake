@@ -73,7 +73,7 @@
 #endif
 
 /* The following is used to silence warnings for unused variables */
-#if defined(UNREFERENCED_PARAMETER)
+#if defined(UNREFERENCED_PARAMETER) && !defined(__GNUC__)
 #define UNUSED(var)	UNREFERENCED_PARAMETER(var)
 #else
 #define UNUSED(var)	do { (void)(var); } while(0)
@@ -380,7 +380,7 @@ struct libusb_context {
 	struct list_head flying_transfers;
 	/* Note paths taking both this and usbi_transfer->lock must always
 	 * take this lock first */
-	usbi_mutex_t flying_transfers_lock;
+	usbi_mutex_t flying_transfers_lock; /* for flying_transfers and timeout_flags */
 
 #if !defined(PLATFORM_WINDOWS)
 	/* user callbacks for pollfd changes */
@@ -563,8 +563,11 @@ void usbi_get_real_time(struct timespec *tp);
  * 2. struct usbi_transfer
  * 3. struct libusb_transfer (which includes iso packets) [variable size]
  *
- * from a libusb_transfer, you can get the usbi_transfer by rewinding the
- * appropriate number of bytes.
+ * You can convert between them with the macros:
+ *  TRANSFER_PRIV_TO_USBI_TRANSFER
+ *  USBI_TRANSFER_TO_TRANSFER_PRIV
+ *  USBI_TRANSFER_TO_LIBUSB_TRANSFER
+ *  LIBUSB_TRANSFER_TO_USBI_TRANSFER
  */
 
 struct usbi_transfer {
@@ -575,7 +578,7 @@ struct usbi_transfer {
 	int transferred;
 	uint32_t stream_id;
 	uint32_t state_flags;   /* Protected by usbi_transfer->lock */
-	uint32_t timeout_flags; /* Protected by the flying_stransfers_lock */
+	uint32_t timeout_flags; /* Protected by the flying_transfers_lock */
 
 	/* The device reference is held until destruction for logging
 	 * even after dev_handle is set to NULL.  */
@@ -617,10 +620,21 @@ enum usbi_transfer_timeout_flags {
 	USBI_TRANSFER_TIMED_OUT = 1U << 2,
 };
 
+#define TRANSFER_PRIV_TO_USBI_TRANSFER(transfer_priv) \
+	((struct usbi_transfer *)			\
+	 ((unsigned char *)(transfer_priv)	\
+	  + PTR_ALIGN(sizeof(*transfer_priv))))
+
+#define USBI_TRANSFER_TO_TRANSFER_PRIV(itransfer) \
+	((unsigned char *)			\
+	 ((unsigned char *)(itransfer)	\
+	  - PTR_ALIGN(usbi_backend.transfer_priv_size)))
+
 #define USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer)	\
 	((struct libusb_transfer *)			\
 	 ((unsigned char *)(itransfer)			\
 	  + PTR_ALIGN(sizeof(struct usbi_transfer))))
+
 #define LIBUSB_TRANSFER_TO_USBI_TRANSFER(transfer)	\
 	((struct usbi_transfer *)			\
 	 ((unsigned char *)(transfer)			\
@@ -679,7 +693,7 @@ struct usbi_interface_descriptor {
 struct usbi_string_descriptor {
 	uint8_t  bLength;
 	uint8_t  bDescriptorType;
-	uint16_t wData[ZERO_SIZED_ARRAY];
+	uint16_t wData[LIBUSB_FLEXIBLE_ARRAY];
 } LIBUSB_PACKED;
 
 struct usbi_bos_descriptor {
@@ -893,7 +907,7 @@ static inline void *usbi_get_transfer_priv(struct usbi_transfer *itransfer)
 struct discovered_devs {
 	size_t len;
 	size_t capacity;
-	struct libusb_device *devices[ZERO_SIZED_ARRAY];
+	struct libusb_device *devices[LIBUSB_FLEXIBLE_ARRAY];
 };
 
 struct discovered_devs *discovered_devs_append(
@@ -1182,6 +1196,8 @@ struct usbi_os_backend {
 	 * claiming, no other drivers/applications can use the interface because
 	 * we now "own" it.
 	 *
+	 * This function gets called with dev_handle->lock locked!
+	 *
 	 * Return:
 	 * - 0 on success
 	 * - LIBUSB_ERROR_NOT_FOUND if the interface does not exist
@@ -1200,6 +1216,8 @@ struct usbi_os_backend {
 	 *
 	 * You will only ever be asked to release an interface which was
 	 * successfully claimed earlier.
+	 *
+	 * This function gets called with dev_handle->lock locked!
 	 *
 	 * Return:
 	 * - 0 on success
@@ -1337,7 +1355,7 @@ struct usbi_os_backend {
 	 *
 	 * This function must not block.
 	 *
-	 * This function gets called with the flying_transfers_lock locked!
+	 * This function gets called with itransfer->lock locked!
 	 *
 	 * Return:
 	 * - 0 on success
@@ -1351,6 +1369,8 @@ struct usbi_os_backend {
 	 * This function must not block. The transfer cancellation must complete
 	 * later, resulting in a call to usbi_handle_transfer_cancellation()
 	 * from the context of handle_events.
+	 *
+	 * This function gets called with itransfer->lock locked!
 	 */
 	int (*cancel_transfer)(struct usbi_transfer *itransfer);
 

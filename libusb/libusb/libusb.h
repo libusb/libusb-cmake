@@ -5,7 +5,7 @@
  * Copyright © 2012 Pete Batard <pete@akeo.ie>
  * Copyright © 2012-2023 Nathan Hjelm <hjelmn@cs.unm.edu>
  * Copyright © 2014-2020 Chris Dickens <christopher.a.dickens@gmail.com>
- * For more information, please visit: http://libusb.info
+ * For more information, please visit: https://libusb.info
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -50,9 +50,9 @@ typedef SSIZE_T ssize_t;
 #include <time.h>
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-#define ZERO_SIZED_ARRAY		/* [] - valid C99 code */
+#define LIBUSB_FLEXIBLE_ARRAY		/* [] - valid C99 code */
 #else
-#define ZERO_SIZED_ARRAY	0	/* [0] - non-standard, but usually working code */
+#define LIBUSB_FLEXIBLE_ARRAY	0	/* [0] - non-standard, but usually working code */
 #endif /* __STDC_VERSION__ */
 
 /* 'interface' might be defined as a macro on Windows, so we need to
@@ -130,11 +130,14 @@ typedef SSIZE_T ssize_t;
  * \ingroup libusb_misc
  * libusb's API version.
  *
- * Since version 1.0.13, to help with feature detection, libusb defines
+ * Since version 1.0.18, to help with feature detection, libusb defines
  * a LIBUSB_API_VERSION macro that gets increased every time there is a
  * significant change to the API, such as the introduction of a new call,
  * the definition of a new macro/enum member, or any other element that
  * libusb applications may want to detect at compilation time.
+ *
+ * Between versions 1.0.13 and 1.0.17 (inclusive) the older spelling of
+ * LIBUSBX_API_VERSION was used.
  *
  * The macro is typically used in an application as follows:
  * \code
@@ -145,10 +148,34 @@ typedef SSIZE_T ssize_t;
  *
  * Internally, LIBUSB_API_VERSION is defined as follows:
  * (libusb major << 24) | (libusb minor << 16) | (16 bit incremental)
+ *
+ * The incremental component has changed as follows:
+ * <ul>
+ * <li>libusbx version 1.0.13: LIBUSBX_API_VERSION = 0x01000100
+ * <li>libusbx version 1.0.14: LIBUSBX_API_VERSION = 0x010000FF
+ * <li>libusbx version 1.0.15: LIBUSBX_API_VERSION = 0x01000101
+ * <li>libusbx version 1.0.16: LIBUSBX_API_VERSION = 0x01000102
+ * <li>libusbx version 1.0.17: LIBUSBX_API_VERSION = 0x01000102
+ * <li>libusb version 1.0.18: LIBUSB_API_VERSION = 0x01000102
+ * <li>libusb version 1.0.19: LIBUSB_API_VERSION = 0x01000103
+ * <li>libusb version 1.0.20: LIBUSB_API_VERSION = 0x01000104
+ * <li>libusb version 1.0.21: LIBUSB_API_VERSION = 0x01000105
+ * <li>libusb version 1.0.22: LIBUSB_API_VERSION = 0x01000106
+ * <li>libusb version 1.0.23: LIBUSB_API_VERSION = 0x01000107
+ * <li>libusb version 1.0.24: LIBUSB_API_VERSION = 0x01000108
+ * <li>libusb version 1.0.25: LIBUSB_API_VERSION = 0x01000109
+ * <li>libusb version 1.0.26: LIBUSB_API_VERSION = 0x01000109
+ * <li>libusb version 1.0.27: LIBUSB_API_VERSION = 0x0100010A
+ * </ul>
  */
 #define LIBUSB_API_VERSION 0x0100010A
 
-/* The following is kept for compatibility, but will be deprecated in the future */
+/** \def LIBUSBX_API_VERSION
+ * \ingroup libusb_misc
+ *
+ * This is the older spelling, kept for backwards compatibility of code
+ * needing to test for older library versions where the newer spelling
+ * did not exist. */
 #define LIBUSBX_API_VERSION LIBUSB_API_VERSION
 
 #if defined(__cplusplus)
@@ -857,7 +884,7 @@ struct libusb_bos_dev_capability_descriptor {
 	uint8_t  bDevCapabilityType;
 
 	/** Device Capability data (bLength - 3 bytes) */
-	uint8_t  dev_capability_data[ZERO_SIZED_ARRAY];
+	uint8_t  dev_capability_data[LIBUSB_FLEXIBLE_ARRAY];
 };
 
 /** \ingroup libusb_desc
@@ -882,7 +909,7 @@ struct libusb_bos_descriptor {
 	uint8_t  bNumDeviceCaps;
 
 	/** bNumDeviceCap Device Capability Descriptors */
-	struct libusb_bos_dev_capability_descriptor *dev_capability[ZERO_SIZED_ARRAY];
+	struct libusb_bos_dev_capability_descriptor *dev_capability[LIBUSB_FLEXIBLE_ARRAY];
 };
 
 /** \ingroup libusb_desc
@@ -1004,7 +1031,7 @@ struct libusb_platform_descriptor {
 	uint8_t  PlatformCapabilityUUID[16];
 
 	/** Capability data (bLength - 20) */
-	uint8_t  CapabilityData[ZERO_SIZED_ARRAY];
+	uint8_t  CapabilityData[LIBUSB_FLEXIBLE_ARRAY];
 };
 
 /** \ingroup libusb_asyncio
@@ -1081,7 +1108,7 @@ struct libusb_version {
  * libusb_exit() will not destroy resources that the other user is still
  * using.
  *
- * Sessions are created by libusb_init() and destroyed through libusb_exit().
+ * Sessions are created by libusb_init_context() and destroyed through libusb_exit().
  * If your application is guaranteed to only ever include a single libusb
  * user (i.e. you), you do not have to worry about contexts: pass NULL in
  * every function call where a context is required, and the default context
@@ -1384,7 +1411,7 @@ struct libusb_transfer {
 	int num_iso_packets;
 
 	/** Isochronous packet descriptors, for isochronous transfers only. */
-	struct libusb_iso_packet_descriptor iso_packet_desc[ZERO_SIZED_ARRAY];
+	struct libusb_iso_packet_descriptor iso_packet_desc[LIBUSB_FLEXIBLE_ARRAY];
 };
 
 /** \ingroup libusb_misc
@@ -1451,6 +1478,7 @@ enum libusb_log_cb_mode {
 enum libusb_option {
 	/** Set the log message verbosity.
 	 *
+	 * This option must be provided an argument of type \ref libusb_log_level.
 	 * The default level is LIBUSB_LOG_LEVEL_NONE, which means no messages are ever
 	 * printed. If you choose to increase the message verbosity level, ensure
 	 * that your application does not close the stderr file descriptor.
@@ -1461,22 +1489,21 @@ enum libusb_option {
 	 * your software.
 	 *
 	 * If the LIBUSB_DEBUG environment variable was set when libusb was
-	 * initialized, this function does nothing: the message verbosity is fixed
+	 * initialized, this option does nothing: the message verbosity is fixed
 	 * to the value in the environment variable.
 	 *
-	 * If libusb was compiled without any message logging, this function does
+	 * If libusb was compiled without any message logging, this option does
 	 * nothing: you'll never get any messages.
 	 *
-	 * If libusb was compiled with verbose debug message logging, this function
+	 * If libusb was compiled with verbose debug message logging, this option
 	 * does nothing: you'll always get messages from all levels.
 	 */
 	LIBUSB_OPTION_LOG_LEVEL = 0,
 
 	/** Use the UsbDk backend for a specific context, if available.
 	 *
-	 * This option should be set immediately after calling libusb_init(), or set at
-	 * initialization with libusb_init_context() otherwise unspecified behavior
-	 * may occur.
+	 * This option should be set at initialization with libusb_init_context()
+	 * otherwise unspecified behavior may occur.
 	 *
 	 * Only valid on Windows. Ignored on all other platforms.
 	 */
@@ -1495,57 +1522,27 @@ enum libusb_option {
 	 * This is typically needed on Android, where access to USB devices
 	 * is limited.
 	 *
+	 * This option should only be used with libusb_init_context()
+	 * otherwise unspecified behavior may occur.
+	 *
 	 * Only valid on Linux. Ignored on all other platforms.
 	 */
 	LIBUSB_OPTION_NO_DEVICE_DISCOVERY = 2,
 
 #define LIBUSB_OPTION_WEAK_AUTHORITY LIBUSB_OPTION_NO_DEVICE_DISCOVERY
 
-	/** Enable or disable WinUSB RAW_IO mode on an endpoint
-	 *
-	 * Requires four additional arguments of:
-	 *
-	 *   libusb_device_handle *dev_handle
-	 *   unsigned int endpoint_address
-	 *   unsigned int enable
-	 *   unsigned int *max_transfer_size_ptr
-	 *
-	 * The dev_handle and endpoint_address parameters must identify a valid
-	 * IN endpoint on an open device. If enable is nonzero, RAW_IO is
-	 * enabled, otherwise it is disabled. Unless max_transfer_size_ptr is
-	 * NULL, then on a successful call to enable RAW_IO, it will be written
-	 * with the MAXIMUM_TRANSFER_SIZE value for the endpoint.
-	 *
-	 * Whilst RAW_IO is enabled for an endpoint, all transfers on that endpoint
-	 * must meet the following two requirements:
-	 *
-	 * * The buffer length must be a multiple of the maximum endpoint packet size.
-	 *
-	 * * The length must be less than or equal to the MAXIMUM_TRANSFER_SIZE value.
-	 *
-	 * This option should not be changed when any transfer is in progress on the
-	 * specified endpoint.
-	 *
-	 * This option only affects the WinUSB backend. On other backends it is ignored
-	 * and returns LIBUSB_OPTION_NOT_SUPPORTED, without modifying the value pointed
-	 * to by max_transfer_size_ptr.
-	 *
-	 *  Since version 1.0.27, \ref LIBUSB_API_VERSION >= 0x0100010A
-	 */
-	LIBUSB_OPTION_WINUSB_RAW_IO = 3,
-
-	/** Set the context log callback functon.
+	/** Set the context log callback function.
 	 *
 	 * Set the log callback function either on a context or globally. This
-	 * option must be provided an argument of type libusb_log_cb. Using this
-	 * option with a NULL context is equivalent to calling libusb_set_log_cb
-	 * with mode LIBUSB_LOG_CB_GLOBAL. Using it with a non-NULL context is
-	 * equivalent to calling libusb_set_log_cb with mode
-	 * LIBUSB_LOG_CB_CONTEXT.
+	 * option must be provided an argument of type \ref libusb_log_cb.
+	 * Using this option with a NULL context is equivalent to calling
+	 * libusb_set_log_cb() with mode \ref LIBUSB_LOG_CB_GLOBAL.
+	 * Using it with a non-NULL context is equivalent to calling
+	 * libusb_set_log_cb() with mode \ref LIBUSB_LOG_CB_CONTEXT.
 	 */
-	LIBUSB_OPTION_LOG_CB = 4,
+	LIBUSB_OPTION_LOG_CB = 3,
 
-	LIBUSB_OPTION_MAX = 5
+	LIBUSB_OPTION_MAX = 4
 };
 
 /** \ingroup libusb_lib
@@ -1571,7 +1568,7 @@ struct libusb_init_option {
   enum libusb_option option;
   /** An integer value used by the option (if applicable). */
   union {
-    int64_t ival;
+    int ival;
     libusb_log_cb log_cbval;
   } value;
 };
