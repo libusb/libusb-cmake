@@ -35,3 +35,9 @@ add_test(NAME stress_mt COMMAND stress_mt)
 
 add_libusb_test(set_option "set_option.c")
 add_libusb_test(init_context "init_context.c")
+
+# the Darwin backend has special backdoor for this test,
+# which is only available in static builds
+if(APPLE AND NOT LIBUSB_BUILD_SHARED_LIBS)
+    add_libusb_test(macos "macos.c")
+endif()
