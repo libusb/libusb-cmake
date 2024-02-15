@@ -21,19 +21,12 @@
 
 #include "config.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include "libusbi.h"
 #include "libusb_testlib.h"
-
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#include <winbase.h>
-
-static int unsetenv(const char *env) {
-  return _putenv_s(env, "");
-}
-#endif
 
 #define LIBUSB_TEST_CLEAN_EXIT(code) \
   do {                               \
@@ -65,7 +58,7 @@ static int unsetenv(const char *env) {
  */
 #define LIBUSB_EXPECT(operator, lhs, rhs)                               \
   do {                                                                  \
-    int64_t _lhs = (int64_t)(intptr_t)(lhs), _rhs = (int64_t)(intptr_t)(rhs); \
+    int64_t _lhs = (lhs), _rhs = (rhs);                                 \
     if (!(_lhs operator _rhs)) {                                        \
       libusb_testlib_logf("Expected %s (%" PRId64 ") " #operator        \
                           " %s (%" PRId64 ") at %s:%d", #lhs,           \
@@ -77,73 +70,57 @@ static int unsetenv(const char *env) {
   } while (0)
 
 
-static libusb_testlib_result test_init_context_basic(void) {
-  libusb_context *test_ctx = NULL;
+extern uint32_t libusb_testonly_fake_running_version;
+extern int libusb_testonly_using_running_interface_version;
+extern int libusb_testonly_using_running_device_version;
+extern bool libusb_testonly_clear_running_version_cache;
 
-  /* test basic functionality */
+static libusb_testlib_result test_macos_version_fallback(void) {
+  libusb_context *test_ctx = NULL;
+  libusb_testonly_fake_running_version = 100001;
+  libusb_testonly_clear_running_version_cache = true;
+
   LIBUSB_TEST_RETURN_ON_ERROR(libusb_init_context(&test_ctx, /*options=*/NULL,
                                                   /*num_options=*/0));
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_interface_version, 220);
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_device_version, 197);
 
-  LIBUSB_TEST_CLEAN_EXIT(TEST_STATUS_SUCCESS);
-}
+  libusb_exit(test_ctx);
+  test_ctx = NULL;
 
-static libusb_testlib_result test_init_context_log_level(void) {
-  libusb_context *test_ctx = NULL;
+  libusb_testonly_fake_running_version = 100900;
 
-  struct libusb_init_option options[] = {
-    {
-      .option = LIBUSB_OPTION_LOG_LEVEL,
-      .value = {
-        .ival = LIBUSB_LOG_LEVEL_ERROR,
-      },
-    }
-  };
+  LIBUSB_TEST_RETURN_ON_ERROR(libusb_init_context(&test_ctx, /*options=*/NULL,
+                                                  /*num_options=*/0));
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_interface_version, 650);
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_device_version, 650);
 
-  /* test basic functionality */
-  LIBUSB_TEST_RETURN_ON_ERROR(libusb_init_context(&test_ctx, options,
-                                                  /*num_options=*/1));
+  libusb_exit(test_ctx);
+  test_ctx = NULL;
 
-#if defined(ENABLE_LOGGING) && !defined(ENABLE_DEBUG_LOGGING)
-  LIBUSB_EXPECT(==, test_ctx->debug, LIBUSB_LOG_LEVEL_ERROR);
-#endif
+  libusb_testonly_fake_running_version = 101200;
 
-  LIBUSB_TEST_CLEAN_EXIT(TEST_STATUS_SUCCESS);
-}
+  LIBUSB_TEST_RETURN_ON_ERROR(libusb_init_context(&test_ctx, /*options=*/NULL,
+                                                  /*num_options=*/0));
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_interface_version, 800);
+  LIBUSB_EXPECT(==, libusb_testonly_using_running_device_version, 650);
 
-static void LIBUSB_CALL test_log_cb(libusb_context *ctx, enum libusb_log_level level,
-                                    const char *str) {
-  UNUSED(ctx);
-  UNUSED(level);
-  UNUSED(str);
-}
+  libusb_exit(test_ctx);
+  test_ctx = NULL;
 
-static libusb_testlib_result test_init_context_log_cb(void) {
-  libusb_context *test_ctx = NULL;
+  // Test a version smaller than 10.0. Initialization should fail.
+  libusb_testonly_fake_running_version = 99999;
 
-  struct libusb_init_option options[] = {
-    {
-      .option = LIBUSB_OPTION_LOG_CB,
-      .value = {
-        .log_cbval = (libusb_log_cb) &test_log_cb,
-      },
-    }
-  };
+  int error = libusb_init_context(&test_ctx, /*options=*/NULL,
+                                  /*num_options=*/0);
+  LIBUSB_EXPECT(!=, error, LIBUSB_SUCCESS);
 
-  /* test basic functionality */
-  LIBUSB_TEST_RETURN_ON_ERROR(libusb_init_context(&test_ctx, options,
-                                                  /*num_options=*/1));
-
-#if defined(ENABLE_LOGGING) && !defined(ENABLE_DEBUG_LOGGING)
-  LIBUSB_EXPECT(==, test_ctx->log_handler, test_log_cb);
-#endif
 
   LIBUSB_TEST_CLEAN_EXIT(TEST_STATUS_SUCCESS);
 }
 
 static const libusb_testlib_test tests[] = {
-  { "test_init_context_basic", &test_init_context_basic },
-  { "test_init_context_log_level", &test_init_context_log_level },
-  { "test_init_context_log_cb", &test_init_context_log_cb },
+  { "test_macos_version_fallback", &test_macos_version_fallback },
   LIBUSB_NULL_TEST
 };
 

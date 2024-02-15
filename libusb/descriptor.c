@@ -521,7 +521,7 @@ static int get_config_descriptor(struct libusb_device *dev, uint8_t config_idx,
  *
  * This is a non-blocking function; the device descriptor is cached in memory.
  *
- * Note since libusb-1.0.16, \ref LIBUSB_API_VERSION >= 0x01000102, this
+ * Note since libusb-1.0.16, \ref LIBUSBX_API_VERSION >= 0x01000102, this
  * function always succeeds.
  *
  * \param dev the device
@@ -1073,6 +1073,8 @@ void API_EXPORTED libusb_free_container_id_descriptor(
 /** \ingroup libusb_desc
  * Get a platform descriptor
  *
+ * Since version 1.0.27, \ref LIBUSB_API_VERSION >= 0x0100010A
+ *
  * \param ctx the context to operate on, or NULL for the default context
  * \param dev_cap Device Capability descriptor with a bDevCapabilityType of
  * \ref libusb_capability_type::LIBUSB_BT_PLATFORM_DESCRIPTOR
@@ -1148,7 +1150,7 @@ int API_EXPORTED libusb_get_string_descriptor_ascii(libusb_device_handle *dev_ha
 	uint8_t desc_index, unsigned char *data, int length)
 {
 	union usbi_string_desc_buf str;
-	int r, si, di;
+	int r;
 	uint16_t langid, wdata;
 
 	/* Asking for the zero'th index is special - it returns a string
@@ -1184,20 +1186,26 @@ int API_EXPORTED libusb_get_string_descriptor_ascii(libusb_device_handle *dev_ha
 	else if ((str.desc.bLength & 1) || str.desc.bLength != r)
 		usbi_warn(HANDLE_CTX(dev_handle), "suspicious bLength %u for string descriptor (read %d)", str.desc.bLength, r);
 
-	di = 0;
-	for (si = 2; si < str.desc.bLength; si += 2) {
-		if (di >= (length - 1))
-			break;
+	/* Stop one byte before the end to leave room for null termination. */
+	int dest_max = length - 1;
 
-		wdata = libusb_le16_to_cpu(str.desc.wData[di]);
+	/* The descriptor has this number of wide characters */
+	int src_max = (str.desc.bLength - 1 - 1) / 2;
+
+	/* Neither read nor write more than the smallest buffer */
+	int idx_max = MIN(dest_max, src_max);
+
+	int idx;
+	for (idx = 0; idx < idx_max; ++idx) {
+		wdata = libusb_le16_to_cpu(str.desc.wData[idx]);
 		if (wdata < 0x80)
-			data[di++] = (unsigned char)wdata;
+			data[idx] = (unsigned char)wdata;
 		else
-			data[di++] = '?'; /* non-ASCII */
+			data[idx] = '?'; /* non-ASCII */
 	}
 
-	data[di] = 0;
-	return di;
+	data[idx] = 0; /* null-terminate string */
+	return idx;
 }
 
 static int parse_iad_array(struct libusb_context *ctx,
@@ -1220,6 +1228,11 @@ static int parse_iad_array(struct libusb_context *ctx,
 	iad_array->length = 0;
 	while (consumed < size) {
 		parse_descriptor(buf, "bb", &header);
+		if (header.bLength < 2) {
+			usbi_err(ctx, "invalid descriptor bLength %d",
+				 header.bLength);
+			return LIBUSB_ERROR_IO;
+		}
 		if (header.bDescriptorType == LIBUSB_DT_INTERFACE_ASSOCIATION)
 			iad_array->length++;
 		buf += header.bLength;

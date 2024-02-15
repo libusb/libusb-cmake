@@ -491,9 +491,10 @@ static unsigned __stdcall windows_iocp_thread(void *arg)
 			continue;
 		}
 
-		itransfer = (struct usbi_transfer *)((unsigned char *)transfer_priv + PTR_ALIGN(sizeof(*transfer_priv)));
+		itransfer = TRANSFER_PRIV_TO_USBI_TRANSFER(transfer_priv);
+		struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 		usbi_dbg(ctx, "transfer %p completed, length %lu",
-			 USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer), ULONG_CAST(num_bytes));
+			 transfer, ULONG_CAST(num_bytes));
 		usbi_signal_transfer_completion(itransfer);
 	}
 
@@ -608,6 +609,8 @@ static int windows_set_option(struct libusb_context *ctx, enum libusb_option opt
 {
 	struct windows_context_priv *priv = usbi_get_context_priv(ctx);
 
+	UNUSED(ap);
+
 	if (option == LIBUSB_OPTION_USE_USBDK) {
 		if (!usbdk_available) {
 			usbi_err(ctx, "UsbDk backend not available");
@@ -616,10 +619,6 @@ static int windows_set_option(struct libusb_context *ctx, enum libusb_option opt
 		usbi_dbg(ctx, "switching context %p to use UsbDk backend", ctx);
 		priv->backend = &usbdk_backend;
 		return LIBUSB_SUCCESS;
-	}
-
-	if (priv->backend->set_option) {
-		return priv->backend->set_option(ctx, option, ap);
 	}
 
 	return LIBUSB_ERROR_NOT_SUPPORTED;
@@ -807,8 +806,9 @@ static int windows_handle_transfer_completion(struct usbi_transfer *itransfer)
 	else
 		result = GetLastError();
 
+	struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 	usbi_dbg(ctx, "handling transfer %p completion with errcode %lu, length %lu",
-		 USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer), ULONG_CAST(result), ULONG_CAST(bytes_transferred));
+		 transfer, ULONG_CAST(result), ULONG_CAST(bytes_transferred));
 
 	switch (result) {
 	case NO_ERROR:
