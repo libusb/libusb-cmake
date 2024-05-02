@@ -207,6 +207,12 @@ else()
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/openbsd_usb.c"
         )
+    elseif(EMSCRIPTEN)
+        target_sources(usb-1.0 PRIVATE
+            "${LIBUSB_ROOT}/os/emscripten_webusb.cpp"
+        )
+        target_compile_options(usb-1.0 PRIVATE -pthread)
+        target_link_options(usb-1.0 PRIVATE -s PROXY_TO_PTHREAD -s EXIT_RUNTIME)
     else()
         message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
     endif()
