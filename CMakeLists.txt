@@ -17,6 +17,10 @@ project(usb-1.0
     VERSION ${LIBUSB_VERSION}
     LANGUAGES C
 )
+if(EMSCRIPTEN)
+    enable_language(CXX)
+    set(CMAKE_CXX_STANDARD 20)
+endif()
 
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
