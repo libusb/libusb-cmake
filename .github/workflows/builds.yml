@@ -264,6 +264,34 @@ jobs:
         fail: true
     # No test runs/results: cross-compiled Android binaries are not runnable on a host machine
 
+  emscripten-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        path: src
+    - name: Setup emsdk
+      uses: mymindstorm/setup-emsdk@v14
+    - name: Verify emsdk
+      run: emcc -v
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install ninja-build
+    - name: Configure
+      run: |
+        rm -rf build install
+        echo "EMSDK:" $EMSDK
+        cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=OFF -DLIBUSB_BUILD_TESTING=OFF -DLIBUSB_BUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
+    - name: Build Static
+      working-directory: build/static
+      run: ninja install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v2
+      with:
+        files: "install/static/lib/libusb-1.0.a, \
+                install/static/include/libusb-1.0/libusb.h"
+        fail: true
 
   publish-test-results:
     name: "Publish Tests Results"
