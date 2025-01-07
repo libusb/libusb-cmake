@@ -2303,7 +2303,8 @@ static const char * const composite_driver_names[] = {
   "USBCCGP", // (Windows built-in) USB Composite Device
   "dg_ssudbus" // SAMSUNG Mobile USB Composite Device
 };
-static const char * const winusbx_driver_names[] = {"libusbK", "libusb0", "WinUSB"};
+// The list should match the list of definitions `SUB_API_` in `windows_winusb.h`.
+static const char * const winusbx_driver_names[] = {"libusbK", "libusb0", "CYUSB3", "WinUSB"};
 static const char * const hid_driver_names[] = {"HIDUSB", "MOUHID", "KBDHID"};
 const struct windows_usb_api_backend usb_api_backend[USB_API_MAX] = {
 	{
@@ -3096,7 +3097,7 @@ static int winusbx_submit_iso_transfer(int sub_api, struct usbi_transfer *itrans
 	set_transfer_priv_handle(itransfer, handle_priv->interface_handle[current_interface].dev_handle);
 	overlapped = get_transfer_priv_overlapped(itransfer);
 
-	if ((sub_api == SUB_API_LIBUSBK) || (sub_api == SUB_API_LIBUSB0)) {
+	if ((sub_api > SUB_API_NOTSET) || (sub_api < SUB_API_WINUSB)) {
 		int i;
 		UINT offset;
 		size_t iso_ctx_size;
@@ -3434,7 +3435,7 @@ static enum libusb_transfer_status winusbx_copy_transfer_data(int sub_api, struc
 			return LIBUSB_TRANSFER_ERROR;
 
 		// for isochronous, need to copy the individual iso packet actual_lengths and statuses
-		if ((sub_api == SUB_API_LIBUSBK) || (sub_api == SUB_API_LIBUSB0)) {
+		if ((sub_api > SUB_API_NOTSET) || (sub_api < SUB_API_WINUSB)) {
 			// iso only supported on libusbk-based backends for now
 			PKISO_CONTEXT iso_context = transfer_priv->iso_context;
 			for (i = 0; i < transfer->num_iso_packets; i++) {

@@ -61,11 +61,14 @@ DEFINE_GUID(GUID_DEVINTERFACE_LIBUSB0_FILTER, 0xF9F3FF14, 0xAE21, 0x48A0, 0x8A, 
 
 // Sub-APIs for WinUSB-like driver APIs (WinUSB, libusbK, libusb-win32 through the libusbK DLL)
 // Must have the same values as the KUSB_DRVID enum from libusbk.h
+// The list of definitions should match `winusbx_driver_names` list in `windows_winusb.c`.
+// If your device relies on `libusbK`, put it in between `SUB_API_NOTSET` and `SUB_API_WINUSB`.
 #define SUB_API_NOTSET		-1
 #define SUB_API_LIBUSBK		0
 #define SUB_API_LIBUSB0		1
-#define SUB_API_WINUSB		2
-#define SUB_API_MAX		3
+#define SUB_API_CYPRESS		2
+#define SUB_API_WINUSB		3
+#define SUB_API_MAX		4
 
 struct windows_usb_api_backend {
 	const uint8_t id;

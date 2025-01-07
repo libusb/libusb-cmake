@@ -1,17 +1,31 @@
-# libusb-cmake
+# libusb-cmake fork
 
-This is the _**community**-supported_ CMake build system for [libusb] project.
+This is a fork of the _**community**-supported_ CMake build system for [libusb](https://github.com/libusb/libusb) project.
 
-The _officially-supported_ build system for [libusb] remains Autotools, as part of the [libusb] main repo.
+The _officially-supported_ build system for **libusb** remains Autotools, as part of the **libusb** main repo.
 
-NOTE: [libusb/](libusb/) subfolder is a git [subtree](https://www.atlassian.com/git/tutorials/git-subtree). Do not attempt to contribute to it - use an upstream [libusb] repo for that purpose.
+# Build
 
-## Use cases
+## Configure CMake
 
-The main use case as of this moment - using libusb as a [subdirectory](https://cmake.org/cmake/help/latest/command/add_subdirectory.html). Depending on the needs of the host project `libusb` may be built with different options, with or w/o installing binaries, etc. 
+### MSVC
+```bash
+cmake -S . -B build -G "Visual Studio 17 2022" -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" -DLIBUSB_ENABLE_LOGGING="OFF"
+```
+### Ninja
+```bash
+cmake -S . -B build -G "Ninja Multi-Config" -DLIBUSB_ENABLE_LOGGING="OFF"
+```
 
----
+## Build
 
-More details: TBD.
+### MSVC
+```bash
+cmake --build build --config Release --target ALL_BUILD -j28
+```
+### Ninja
+```bash
+cmake --build build --config Release --target generated
+```
 
-[libusb]: https://github.com/libusb/libusb
+Libusb repo: https://github.com/libusb/libusb
