@@ -160,6 +160,7 @@ if(WIN32)
     )
     target_compile_definitions(usb-1.0 PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
     target_link_libraries(usb-1.0 PRIVATE windowsapp)
+    set_target_properties(usb-1.0 PROPERTIES UNITY_BUILD OFF)
 else()
     # common POSIX/non-Windows sources
     target_sources(usb-1.0 PRIVATE
