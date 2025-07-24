@@ -268,7 +268,7 @@ if (LIBUSB_INSTALL_TARGETS)
     )
     install(FILES
             "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
-            DESTINATION lib/cmake/libusb
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
     )
 endif ()
 
