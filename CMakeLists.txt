@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
+# To Auto-determine the installation suffixes
+enable_language(C)
+include(GNUInstallDirs)
+
 get_filename_component(LIBUSB_ROOT "libusb/libusb" ABSOLUTE)
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
@@ -138,9 +142,17 @@ target_include_directories(usb-1.0
 )
 
 if (LIBUSB_TARGETS_INCLUDE_USING_SYSTEM)
-    target_include_directories(usb-1.0 SYSTEM PUBLIC "${LIBUSB_ROOT}")
+    target_include_directories(usb-1.0
+            SYSTEM PUBLIC
+            $<BUILD_INTERFACE:${LIBUSB_ROOT}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
+        )
 else()
-    target_include_directories(usb-1.0 PUBLIC "${LIBUSB_ROOT}")
+    target_include_directories(usb-1.0
+            PUBLIC
+            $<BUILD_INTERFACE:${LIBUSB_ROOT}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
+    )
 endif()
 
 if(WIN32)
@@ -230,7 +242,33 @@ if(LIBUSB_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
-if(LIBUSB_INSTALL_TARGETS)
-    install(TARGETS usb-1.0)
-    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "include/libusb-1.0")
-endif()
+if (LIBUSB_INSTALL_TARGETS)
+    if (MSVC)
+        set(LIBUSB_INSTALL_LIBRARY_DIR ${CMAKE_INSTALL_BINDIR})
+    else ()
+        set(LIBUSB_INSTALL_LIBRARY_DIR ${CMAKE_INSTALL_LIBDIR})
+    endif ()
+    install(TARGETS usb-1.0
+            EXPORT usb-1.0-targets
+            LIBRARY DESTINATION ${LIBUSB_INSTALL_LIBRARY_DIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0")
+    install(EXPORT usb-1.0-targets
+            FILE libusb-targets.cmake
+            NAMESPACE libusb::
+            DESTINATION lib/cmake/libusb
+    )
+
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+            "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
+            VERSION ${LIBUSB_VERSION}
+            COMPATIBILITY SameMajorVersion
+    )
+    install(FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
+            DESTINATION lib/cmake/libusb
+    )
+endif ()
+
