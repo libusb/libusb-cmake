@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 
-# To Auto-determine the installation suffixes
-enable_language(C)
-include(GNUInstallDirs)
-
 get_filename_component(LIBUSB_ROOT "libusb/libusb" ABSOLUTE)
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
@@ -25,6 +21,9 @@ if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 20)
     enable_language(CXX)
 endif()
+
+# To Auto-determine the installation suffixes
+include(GNUInstallDirs)
 
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
