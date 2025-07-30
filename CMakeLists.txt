@@ -22,9 +22,6 @@ if(EMSCRIPTEN)
     enable_language(CXX)
 endif()
 
-# To Auto-determine the installation suffixes
-include(GNUInstallDirs)
-
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
 # e.g. Logging LIBUSB_ENABLE_LOGGING mapps to ENABLE_LOGGING in the config, keeps it clean
@@ -242,18 +239,12 @@ if(LIBUSB_BUILD_EXAMPLES)
 endif()
 
 if (LIBUSB_INSTALL_TARGETS)
-    if (MSVC)
-        set(LIBUSB_INSTALL_LIBRARY_DIR ${CMAKE_INSTALL_BINDIR})
-    else ()
-        set(LIBUSB_INSTALL_LIBRARY_DIR ${CMAKE_INSTALL_LIBDIR})
-    endif ()
     install(TARGETS usb-1.0
             EXPORT usb-1.0-targets
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-            LIBRARY DESTINATION ${LIBUSB_INSTALL_LIBRARY_DIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
-    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0")
+
+    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "include/libusb-1.0")
+
     install(EXPORT usb-1.0-targets
             FILE libusb-targets.cmake
             NAMESPACE libusb::
@@ -261,14 +252,15 @@ if (LIBUSB_INSTALL_TARGETS)
     )
 
     include(CMakePackageConfigHelpers)
+
     write_basic_package_version_file(
             "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
             VERSION ${LIBUSB_VERSION}
             COMPATIBILITY SameMajorVersion
     )
+
     install(FILES
             "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+            DESTINATION "lib/cmake/libusb"
     )
-endif ()
-
+endif()
