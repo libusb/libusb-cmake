@@ -1,0 +1,37 @@
+name: Windows build and Package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          - 'windows-2022'
+          - 'windows-2025'
+        configuration:
+          - 'Debug'
+          - 'Release'
+          - 'Debug-MT'
+          - 'Release-MT'
+          - 'Debug-Hotplug'
+          - 'Release-Hotplug'
+          - 'Debug-Hotplug-MT'
+          - 'Release-Hotplug-MT'
+        architecture:
+          - 'Win32'
+          - 'x64'
+          - 'ARM64'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.3
+        
+      - name: Build solution
+        run: |
+          msbuild msvc/libusb.sln /m -property:Configuration=${{ matrix.configuration }} -property:Platform=${{ matrix.architecture }}
