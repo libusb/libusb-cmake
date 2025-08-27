@@ -65,9 +65,6 @@ typedef SSIZE_T ssize_t;
 #if defined(interface)
 #undef interface
 #endif
-#if !defined(__CYGWIN__)
-#include <winsock.h>
-#endif
 #endif /* _WIN32 || __CYGWIN__ */
 
 #if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
@@ -192,7 +189,7 @@ extern "C" {
  * \param x the host-endian value to convert
  * \returns the value in little-endian byte order
  */
-static inline uint16_t libusb_cpu_to_le16(const uint16_t x)
+static inline uint16_t libusb_cpu_to_le16(uint16_t x)
 {
 	union {
 		uint8_t  b8[2];
@@ -1182,16 +1179,16 @@ struct libusb_device_handle;
  */
 struct libusb_version {
 	/** Library major version. */
-	const uint16_t major;
+	uint16_t major;
 
 	/** Library minor version. */
-	const uint16_t minor;
+	uint16_t minor;
 
 	/** Library micro version. */
-	const uint16_t micro;
+	uint16_t micro;
 
 	/** Library nano version. */
-	const uint16_t nano;
+	uint16_t nano;
 
 	/** Library release candidate suffix string, e.g. "-rc4". */
 	const char *rc;
