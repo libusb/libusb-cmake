@@ -52,6 +52,9 @@
 /* #define to 1 if compiling for a Windows platform. */
 #cmakedefine PLATFORM_WINDOWS 1
 
+/* #define to 1 to enable Windows hotplug support. */
+#cmakedefine LIBUSB_WINDOWS_HOTPLUG 1
+
 
 #if defined(__GNUC__)
  #define PRINTF_FORMAT(a, b) __attribute__ ((format (__printf__, a, b)))
