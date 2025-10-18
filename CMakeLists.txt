@@ -52,6 +52,8 @@ function(generate_config_file)
 
     if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
         check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
+    else()
+        set(HAVE_VISIBILITY OFF)
     endif()
 
     if(HAVE_VISIBILITY)
