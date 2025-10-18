@@ -50,6 +50,10 @@ function(generate_config_file)
 
     check_struct_has_member("struct timespec" tv_sec time.h HAVE_STRUCT_TIMESPEC)
 
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
+    endif()
+
     if(HAVE_VISIBILITY)
         set(DEFAULT_VISIBILITY "__attribute__((visibility(\"default\")))")
     else()
@@ -68,10 +72,6 @@ function(generate_config_file)
     endif()
     if(LIBUSB_ENABLE_DEBUG_LOGGING)
         set(ENABLE_DEBUG_LOGGING ${LIBUSB_ENABLE_DEBUG_LOGGING})
-    endif()
-
-    if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
     endif()
 
     file(MAKE_DIRECTORY "${LIBUSB_GEN_INCLUDES}")
