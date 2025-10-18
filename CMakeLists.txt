@@ -74,6 +74,10 @@ function(generate_config_file)
         set(ENABLE_DEBUG_LOGGING ${LIBUSB_ENABLE_DEBUG_LOGGING})
     endif()
 
+    if(WIN32 AND LIBUSB_ENABLE_WINDOWS_HOTPLUG)
+        set(LIBUSB_WINDOWS_HOTPLUG 1)
+    endif()
+
     file(MAKE_DIRECTORY "${LIBUSB_GEN_INCLUDES}")
     if(NOT MSVC)
         set(_GNU_SOURCE TRUE)
@@ -102,6 +106,10 @@ option(LIBUSB_ENABLE_LOGGING "Enable Logging" ON)
 option(LIBUSB_ENABLE_DEBUG_LOGGING "Enable Debug Logging" OFF)
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     option(LIBUSB_ENABLE_UDEV "Enable udev backend for device enumeration" ON)
+endif()
+
+if(WIN32)
+    option(LIBUSB_ENABLE_WINDOWS_HOTPLUG "Enable Windows hotplug support" OFF)
 endif()
 
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
@@ -160,6 +168,13 @@ if(WIN32)
     )
     target_compile_definitions(usb-1.0 PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
     target_link_libraries(usb-1.0 PRIVATE windowsapp)
+    if(LIBUSB_ENABLE_WINDOWS_HOTPLUG)
+        target_sources(usb-1.0 PRIVATE
+            "${LIBUSB_ROOT}/os/windows_hotplug.c"
+            "${LIBUSB_ROOT}/os/windows_hotplug.h"
+        )
+        target_compile_definitions(usb-1.0 PRIVATE LIBUSB_WINDOWS_HOTPLUG=1)
+    endif()
     set_target_properties(usb-1.0 PROPERTIES UNITY_BUILD OFF)
 else()
     # common POSIX/non-Windows sources
