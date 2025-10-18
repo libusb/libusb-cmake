@@ -50,6 +50,12 @@ function(generate_config_file)
 
     check_struct_has_member("struct timespec" tv_sec time.h HAVE_STRUCT_TIMESPEC)
 
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
+    else()
+        set(HAVE_VISIBILITY OFF)
+    endif()
+
     if(HAVE_VISIBILITY)
         set(DEFAULT_VISIBILITY "__attribute__((visibility(\"default\")))")
     else()
@@ -72,10 +78,6 @@ function(generate_config_file)
 
     if(WIN32 AND LIBUSB_ENABLE_WINDOWS_HOTPLUG)
         set(LIBUSB_WINDOWS_HOTPLUG 1)
-    endif()
-
-    if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
     endif()
 
     file(MAKE_DIRECTORY "${LIBUSB_GEN_INCLUDES}")
