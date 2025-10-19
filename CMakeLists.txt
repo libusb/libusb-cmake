@@ -93,6 +93,8 @@ else()
     set(LIBUSB_BUILD_SHARED_LIBS_DEFAULT OFF)
 endif()
 
+include(CMakeDependentOption)
+
 option(LIBUSB_BUILD_SHARED_LIBS "Build Shared Libraries for libusb" ${LIBUSB_BUILD_SHARED_LIBS_DEFAULT})
 option(LIBUSB_BUILD_TESTING "Build Tests" OFF)
 if(LIBUSB_BUILD_TESTING)
@@ -102,6 +104,8 @@ endif()
 option(LIBUSB_BUILD_EXAMPLES "Build Example Applications" OFF)
 
 option(LIBUSB_INSTALL_TARGETS "Install libusb targets" ON)
+cmake_dependent_option(LIBUSB_EXPORT_INSTALL_TARGETS "Generate export files for installed targets" ON LIBUSB_INSTALL_TARGETS OFF)
+
 option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" ON)
 
 option(LIBUSB_ENABLE_LOGGING "Enable Logging" ON)
@@ -114,8 +118,19 @@ if(WIN32)
     option(LIBUSB_ENABLE_WINDOWS_HOTPLUG "Enable Windows hotplug support" OFF)
 endif()
 
+#
+
+if(LIBUSB_INSTALL_TARGETS)
+    # to make sure all variables, like CMAKE_INSTALL_LIBDIR, are initialized
+    include(GNUInstallDirs)
+endif()
+
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
 generate_config_file()
+
+#
+#
+#
 
 if(LIBUSB_BUILD_SHARED_LIBS)
     add_library(usb-1.0 SHARED)
@@ -147,19 +162,17 @@ target_include_directories(usb-1.0
         "${LIBUSB_ROOT}/os"
 )
 
-if (LIBUSB_TARGETS_INCLUDE_USING_SYSTEM)
-    target_include_directories(usb-1.0
-            SYSTEM PUBLIC
-            $<BUILD_INTERFACE:${LIBUSB_ROOT}>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
-        )
+if(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM)
+    set(LIBUSB_SYSTEM_FLAGS SYSTEM)
 else()
-    target_include_directories(usb-1.0
-            PUBLIC
-            $<BUILD_INTERFACE:${LIBUSB_ROOT}>
-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
-    )
+    set(LIBUSB_SYSTEM_FLAGS)
 endif()
+
+target_include_directories(usb-1.0
+    ${LIBUSB_SYSTEM_FLAGS} PUBLIC
+    $<BUILD_INTERFACE:${LIBUSB_ROOT}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
+)
 
 if(WIN32)
     target_sources(usb-1.0 PRIVATE
@@ -255,29 +268,34 @@ if(LIBUSB_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
-if (LIBUSB_INSTALL_TARGETS)
+if(LIBUSB_INSTALL_TARGETS)
+    # to make sure all variables, like CMAKE_INSTALL_LIBDIR, are initialized
+    include(GNUInstallDirs)
+
+    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0")
+
     install(TARGETS usb-1.0
-            EXPORT usb-1.0-targets
+        EXPORT usb-1.0-targets
     )
 
-    install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "include/libusb-1.0")
-
-    install(EXPORT usb-1.0-targets
-            FILE libusb-targets.cmake
+    if(LIBUSB_EXPORT_INSTALL_TARGETS)
+        install(EXPORT usb-1.0-targets
+            FILE usb-1.0-targets.cmake
             NAMESPACE libusb::
-            DESTINATION lib/cmake/libusb
-    )
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+        )
 
-    include(CMakePackageConfigHelpers)
+        include(CMakePackageConfigHelpers)
 
-    write_basic_package_version_file(
-            "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
+        write_basic_package_version_file(
+            "${CMAKE_CURRENT_BINARY_DIR}/libusb-config-version.cmake"
             VERSION ${LIBUSB_VERSION}
             COMPATIBILITY SameMajorVersion
-    )
+        )
 
-    install(FILES
-            "${CMAKE_CURRENT_BINARY_DIR}/libusbConfigVersion.cmake"
-            DESTINATION "lib/cmake/libusb"
-    )
+        install(FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/libusb-config-version.cmake"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+        )
+    endif()
 endif()
