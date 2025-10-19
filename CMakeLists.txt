@@ -269,9 +269,6 @@ if(LIBUSB_BUILD_EXAMPLES)
 endif()
 
 if(LIBUSB_INSTALL_TARGETS)
-    # to make sure all variables, like CMAKE_INSTALL_LIBDIR, are initialized
-    include(GNUInstallDirs)
-
     install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0")
 
     install(TARGETS usb-1.0
