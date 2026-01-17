@@ -250,6 +250,11 @@ else()
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/openbsd_usb.c"
         )
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+        target_sources(usb-1.0 PRIVATE
+            "${LIBUSB_ROOT}/os/sunos_usb.c"
+        )
+        target_link_libraries(usb-1.0 PRIVATE -ldevinfo -lnvpair)
     elseif(EMSCRIPTEN)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/emscripten_webusb.cpp"
