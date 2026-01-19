@@ -14,7 +14,7 @@ jobs:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure -E "^set_option$"
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -33,7 +33,7 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared/lib/libusb-1.0.so, \
                 install/shared/include/libusb-1.0/libusb.h, \
@@ -50,7 +50,7 @@ jobs:
       run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results Ubuntu
         path: |
@@ -64,7 +64,7 @@ jobs:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -81,7 +81,7 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared/lib/libusb-1.0.dylib, \
                 install/shared/include/libusb-1.0/libusb.h, \
@@ -98,7 +98,7 @@ jobs:
       run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results macOS
         path: |
@@ -113,7 +113,7 @@ jobs:
       VCVARS64_PATH: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -157,7 +157,7 @@ jobs:
         call "${{ env.VCVARS64_PATH }}"
         ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/msvc/lib/usb-1.0.lib, \
                 install/msvc/bin/libusb-1.0.dll, \
@@ -204,7 +204,7 @@ jobs:
       run: ctest --output-junit test_ninja_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results MSVC
         path: |
@@ -224,7 +224,7 @@ jobs:
       ANDROID_ARM64_CMAKE_OPTIONS: -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -251,7 +251,7 @@ jobs:
       working-directory: build/static_64
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared_32/lib/libusb-1.0.so, \
                 install/shared_32/include/libusb-1.0/libusb.h, \
@@ -267,7 +267,7 @@ jobs:
   emscripten-build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Setup emsdk
@@ -287,7 +287,7 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/static/lib/libusb-1.0.a, \
                 install/static/include/libusb-1.0/libusb.h"
@@ -304,7 +304,7 @@ jobs:
 
     steps:
     - name: Download Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         path: artifacts
     - name: Publish Test Results
