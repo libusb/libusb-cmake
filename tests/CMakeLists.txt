@@ -10,6 +10,11 @@ target_link_libraries(libusb_tests_build_interface INTERFACE usb-1.0)
 target_include_directories(libusb_tests_build_interface INTERFACE "${LIBUSB_GEN_INCLUDES}")
 target_compile_definitions(libusb_tests_build_interface INTERFACE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
+if(CMAKE_SYSTEM_NAME MATCHES "NetBSD|OpenBSD")
+    find_package(Threads REQUIRED)
+    target_link_libraries(libusb_tests_build_interface INTERFACE Threads::Threads)
+endif()
+
 function(add_libusb_test TEST_NAME)
     set(SOURCES "${TESTS_ROOT}/testlib.c")
     foreach(SOURCE_NAME ${ARGN})
