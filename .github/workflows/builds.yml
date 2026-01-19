@@ -58,7 +58,7 @@ jobs:
           build/static/test_static.xml
 
 
-  macos-buid:
+  macos-build:
     runs-on: macos-latest
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
@@ -106,7 +106,7 @@ jobs:
           build/static/test_static.xml
 
 
-  windows-msvc-buid:
+  windows-msvc-build:
     runs-on: windows-latest
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
@@ -295,7 +295,7 @@ jobs:
 
   publish-test-results:
     name: "Publish Tests Results"
-    needs: [ubuntu-build, macos-buid, windows-msvc-buid, android-build]
+    needs: [ubuntu-build, macos-build, windows-msvc-build, android-build]
     runs-on: ubuntu-latest
     permissions:
       checks: write
