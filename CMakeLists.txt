@@ -22,6 +22,8 @@ if(EMSCRIPTEN)
     enable_language(CXX)
 endif()
 
+message("Building usb-1.0 for: ${CMAKE_SYSTEM_NAME}")
+
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
 # e.g. Logging LIBUSB_ENABLE_LOGGING mapps to ENABLE_LOGGING in the config, keeps it clean
@@ -250,6 +252,11 @@ else()
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/openbsd_usb.c"
         )
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+        target_sources(usb-1.0 PRIVATE
+            "${LIBUSB_ROOT}/os/sunos_usb.c"
+        )
+        target_link_libraries(usb-1.0 PRIVATE -ldevinfo -lnvpair)
     elseif(EMSCRIPTEN)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/emscripten_webusb.cpp"

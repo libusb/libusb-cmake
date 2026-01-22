@@ -14,7 +14,7 @@ jobs:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure -E "^set_option$"
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -33,7 +33,7 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared/lib/libusb-1.0.so, \
                 install/shared/include/libusb-1.0/libusb.h, \
@@ -50,7 +50,7 @@ jobs:
       run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results Ubuntu
         path: |
@@ -58,13 +58,13 @@ jobs:
           build/static/test_static.xml
 
 
-  macos-buid:
+  macos-build:
     runs-on: macos-latest
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -81,7 +81,7 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared/lib/libusb-1.0.dylib, \
                 install/shared/include/libusb-1.0/libusb.h, \
@@ -98,7 +98,7 @@ jobs:
       run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results macOS
         path: |
@@ -106,14 +106,14 @@ jobs:
           build/static/test_static.xml
 
 
-  windows-msvc-buid:
+  windows-msvc-build:
     runs-on: windows-latest
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
       VCVARS64_PATH: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -157,7 +157,7 @@ jobs:
         call "${{ env.VCVARS64_PATH }}"
         ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/msvc/lib/usb-1.0.lib, \
                 install/msvc/bin/libusb-1.0.dll, \
@@ -204,7 +204,7 @@ jobs:
       run: ctest --output-junit test_ninja_static.xml ${{ env.COMMON_CTEST_ARGS }}
     - name: Upload Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: Test Results MSVC
         path: |
@@ -224,7 +224,7 @@ jobs:
       ANDROID_ARM64_CMAKE_OPTIONS: -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Install dependencies
@@ -251,7 +251,7 @@ jobs:
       working-directory: build/static_64
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/shared_32/lib/libusb-1.0.so, \
                 install/shared_32/include/libusb-1.0/libusb.h, \
@@ -267,7 +267,7 @@ jobs:
   emscripten-build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         path: src
     - name: Setup emsdk
@@ -287,15 +287,99 @@ jobs:
       working-directory: build/static
       run: ninja install
     - name: Check artifacts
-      uses: andstor/file-existence-action@v2
+      uses: andstor/file-existence-action@v3
       with:
         files: "install/static/lib/libusb-1.0.a, \
                 install/static/include/libusb-1.0/libusb.h"
         fail: true
 
+  netbsd-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        path: src
+    - uses: cross-platform-actions/action@v0.32.0
+      with:
+        operating_system: netbsd
+        architecture: x86-64
+        version: '10.1'
+        run: |
+          sudo pkgin update
+          sudo pkgin -y install cmake ninja-build
+          rm -rf build install
+          cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+          cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+          ninja -C build/shared install
+          ninja -C build/static install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v3
+      with:
+        files: "install/shared/lib/libusb-1.0.so, \
+                install/shared/include/libusb-1.0/libusb.h, \
+                install/static/lib/libusb-1.0.a, \
+                install/static/include/libusb-1.0/libusb.h"
+        fail: true
+
+  omnios-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: src
+      - uses: cross-platform-actions/action@v0.32.0
+        with:
+          operating_system: omnios
+          architecture: x86-64
+          version: 'r151056'
+          run: |
+            sudo pkg refresh
+            sudo pkg install build-essential cmake header-ugen header-usb ninja
+            rm -rf build install
+            cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+            cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+            ninja -C build/shared install
+            ninja -C build/static install
+      - name: Check artifacts
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "install/shared/lib/libusb-1.0.so, \
+                install/shared/include/libusb-1.0/libusb.h, \
+                install/static/lib/libusb-1.0.a, \
+                install/static/include/libusb-1.0/libusb.h"
+          fail: true
+
+  openbsd-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: src
+      - uses: cross-platform-actions/action@v0.32.0
+        with:
+          operating_system: openbsd
+          architecture: x86-64
+          version: '7.8'
+          run: |
+            sudo pkg_add -u
+            sudo pkg_add cmake ninja
+            rm -rf build install
+            cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+            cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+            ninja -C build/shared install
+            ninja -C build/static install
+      - name: Check artifacts
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "install/shared/lib/libusb-1.0.so, \
+                install/shared/include/libusb-1.0/libusb.h, \
+                install/static/lib/libusb-1.0.a, \
+                install/static/include/libusb-1.0/libusb.h"
+          fail: true
+
   publish-test-results:
     name: "Publish Tests Results"
-    needs: [ubuntu-build, macos-buid, windows-msvc-buid, android-build]
+    needs: [ubuntu-build, macos-build, windows-msvc-build, android-build]
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -304,7 +388,7 @@ jobs:
 
     steps:
     - name: Download Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         path: artifacts
     - name: Publish Test Results
