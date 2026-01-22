@@ -22,6 +22,8 @@ if(EMSCRIPTEN)
     enable_language(CXX)
 endif()
 
+message("Building usb-1.0 for: ${CMAKE_SYSTEM_NAME}")
+
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
 # e.g. Logging LIBUSB_ENABLE_LOGGING mapps to ENABLE_LOGGING in the config, keeps it clean
