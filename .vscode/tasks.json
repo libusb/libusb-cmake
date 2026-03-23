@@ -1,0 +1,68 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Configure libusb (CMake)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy", "Bypass",
+				"-File", "${workspaceFolder}/.vscode/msvc-cmake.ps1",
+				"-S", "${workspaceFolder}",
+				"-B", "${workspaceFolder}/build",
+				"-G", "Ninja",
+				"-DCMAKE_BUILD_TYPE=Debug",
+				"-DBUILD_SHARED_LIBS=ON",
+				"-DLIBUSB_BUILD_TESTING=ON",
+				"-DLIBUSB_ENABLE_DEBUG_LOGGING=ON"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Build libusb (CMake)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy", "Bypass",
+				"-File", "${workspaceFolder}/.vscode/msvc-cmake.ps1",
+				"--build",
+				"${workspaceFolder}/build"
+			],
+			"dependsOn": "Configure libusb (CMake)",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Configure libusb (CMake Release)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy", "Bypass",
+				"-File", "${workspaceFolder}/.vscode/msvc-cmake.ps1",
+				"-S", "${workspaceFolder}",
+				"-B", "${workspaceFolder}/build-release",
+				"-G", "Ninja",
+				"-DCMAKE_BUILD_TYPE=Release",
+				"-DBUILD_SHARED_LIBS=ON"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "Build libusb (CMake Release)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy", "Bypass",
+				"-File", "${workspaceFolder}/.vscode/msvc-cmake.ps1",
+				"--build",
+				"${workspaceFolder}/build-release"
+			],
+			"dependsOn": "Configure libusb (CMake Release)",
+			"group": "build",
+			"problemMatcher": []
+		}
+	]
+}

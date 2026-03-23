@@ -1,0 +1,13 @@
+{
+    "cmake.generator": "Ninja",
+    "cmake.preferredGenerators": [
+        "Ninja"
+    ],
+    "cmake.useVsDeveloperEnvironment": "always",
+    "cmake.useCMakePresets": "never",
+    "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
+    "cmake.configureOnOpen": true,
+    "cmake.configureSettings": {
+        "LIBUSB_BUILD_SHARED_LIBS": true
+    }
+}
