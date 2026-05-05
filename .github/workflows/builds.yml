@@ -105,6 +105,53 @@ jobs:
           build/shared/test_shared.xml
           build/static/test_static.xml
 
+  windows-mingw-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: 'msys2 {0}'
+    env:
+      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: src
+      - name: Install dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain
+      - name: Configure
+        run: |
+          rm -rf build install
+          cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+          cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+      - name: Build Shared
+        working-directory: build/shared
+        run: ninja install
+      - name: Build Static
+        working-directory: build/static
+        run: ninja install
+      - name: Check artifacts
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "install/shared/lib/libusb-1.0.dll.a, \
+                  install/shared/bin/libusb-1.0.dll, \
+                  install/shared/include/libusb-1.0/libusb.h, \
+                  install/static/lib/libusb-1.0.a, \
+                  install/static/include/libusb-1.0/libusb.h"
+          fail: true
+      - name: Test Shared
+        if: always()
+        working-directory: build/shared
+        run: |
+          export PATH="$(pwd)/../../install/shared/bin:$PATH"
+          ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+      - name: Test Static
+        if: always()
+        working-directory: build/static
+        run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
 
   windows-msvc-build:
     runs-on: windows-latest
