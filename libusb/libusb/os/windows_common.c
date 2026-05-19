@@ -496,9 +496,11 @@ static unsigned __stdcall windows_iocp_thread(void *arg)
 		}
 
 		itransfer = TRANSFER_PRIV_TO_USBI_TRANSFER(transfer_priv);
+#ifdef ENABLE_LOGGING
 		struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 		usbi_dbg(ctx, "transfer %p completed, length %lu",
 			 transfer, ULONG_CAST(num_bytes));
+#endif
 		usbi_signal_transfer_completion(itransfer);
 	}
 
@@ -651,6 +653,16 @@ static int windows_get_device_list(struct libusb_context *ctx, struct discovered
 }
 #endif
 
+static int windows_get_device_string(libusb_device *dev,
+	enum libusb_device_string_type string_type, char *data, int length)
+{
+	struct windows_context_priv* priv = usbi_get_context_priv(DEVICE_CTX(dev));
+	if (NULL != priv->backend->get_device_string) {
+		return priv->backend->get_device_string(dev, string_type, data, length);
+	}
+	return LIBUSB_ERROR_NOT_SUPPORTED;
+}
+
 static int windows_open(struct libusb_device_handle *dev_handle)
 {
 	struct windows_context_priv *priv = usbi_get_context_priv(HANDLE_CTX(dev_handle));
@@ -738,6 +750,37 @@ static void windows_destroy_device(struct libusb_device *dev)
 	priv->backend->destroy_device(dev);
 }
 
+static int windows_endpoint_supports_raw_io(libusb_device_handle* dev_handle,
+	uint8_t endpoint)
+{
+	struct windows_context_priv *priv = usbi_get_context_priv(HANDLE_CTX(dev_handle));
+	if (priv->backend->endpoint_supports_raw_io)
+		return priv->backend->endpoint_supports_raw_io(dev_handle, endpoint);
+	return LIBUSB_ERROR_NOT_SUPPORTED;
+}
+
+static int windows_endpoint_set_raw_io(libusb_device_handle* dev_handle,
+	uint8_t endpoint, int enable)
+{
+	struct windows_context_priv *priv = usbi_get_context_priv(HANDLE_CTX(dev_handle));
+
+	if (priv->backend->endpoint_supports_raw_io == NULL
+		|| priv->backend->endpoint_supports_raw_io(dev_handle, endpoint) != 1
+		|| priv->backend->endpoint_set_raw_io == NULL)
+		return LIBUSB_ERROR_NOT_SUPPORTED;
+
+	return priv->backend->endpoint_set_raw_io(dev_handle, endpoint, enable);
+}
+
+static int windows_get_max_raw_io_transfer_size(struct libusb_device_handle *dev_handle,
+	uint8_t endpoint)
+{
+	struct windows_context_priv *priv = usbi_get_context_priv(HANDLE_CTX(dev_handle));
+	if (priv->backend->get_max_raw_io_transfer_size)
+		return priv->backend->get_max_raw_io_transfer_size(dev_handle, endpoint);
+	return LIBUSB_ERROR_NOT_SUPPORTED;
+}
+
 static int windows_submit_transfer(struct usbi_transfer *itransfer)
 {
 	struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
@@ -821,15 +864,26 @@ static int windows_handle_transfer_completion(struct usbi_transfer *itransfer)
 	struct windows_transfer_priv *transfer_priv = usbi_get_transfer_priv(itransfer);
 	enum libusb_transfer_status status, istatus;
 	DWORD result, bytes_transferred;
+	HANDLE transfer_handle;
 
-	if (GetOverlappedResult(transfer_priv->handle, &transfer_priv->overlapped, &bytes_transferred, FALSE))
+	/*
+	 * The submit path runs with itransfer->lock held. Grab the handle under
+	 * the same lock so we do not race with submission/completion bookkeeping.
+	 */
+	usbi_mutex_lock(&itransfer->lock);
+	transfer_handle = transfer_priv->handle;
+	usbi_mutex_unlock(&itransfer->lock);
+
+	if (GetOverlappedResult(transfer_handle, &transfer_priv->overlapped, &bytes_transferred, FALSE))
 		result = NO_ERROR;
 	else
 		result = GetLastError();
 
+#ifdef ENABLE_LOGGING
 	struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 	usbi_dbg(ctx, "handling transfer %p completion with errcode %lu, length %lu",
 		 transfer, ULONG_CAST(result), ULONG_CAST(bytes_transferred));
+#endif
 
 	switch (result) {
 	case NO_ERROR:
@@ -864,7 +918,9 @@ static int windows_handle_transfer_completion(struct usbi_transfer *itransfer)
 		break;
 	}
 
+	usbi_mutex_lock(&itransfer->lock);
 	transfer_priv->handle = NULL;
+	usbi_mutex_unlock(&itransfer->lock);
 
 	// Backend-specific cleanup
 	backend->clear_transfer_priv(itransfer);
@@ -914,6 +970,7 @@ const struct usbi_os_backend usbi_backend = {
 #else
 	windows_get_device_list,
 #endif
+	windows_get_device_string,
 	NULL,	/* hotplug_poll */
 	NULL,	/* wrap_sys_device */
 	windows_open,
@@ -935,6 +992,9 @@ const struct usbi_os_backend usbi_backend = {
 	NULL,	/* kernel_driver_active */
 	NULL,	/* detach_kernel_driver */
 	NULL,	/* attach_kernel_driver */
+	windows_endpoint_supports_raw_io,
+	windows_endpoint_set_raw_io,
+	windows_get_max_raw_io_transfer_size,
 	windows_destroy_device,
 	windows_submit_transfer,
 	windows_cancel_transfer,
