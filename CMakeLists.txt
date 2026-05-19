@@ -22,7 +22,7 @@ if(EMSCRIPTEN)
     enable_language(CXX)
 endif()
 
-message("Building usb-1.0 for: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "Building usb-1.0 for: ${CMAKE_SYSTEM_NAME}")
 
 # This function generates all the local variables what end up getting written to config.
 # We use a function as any vars set in this context don't mess with the rest of the file.
@@ -192,7 +192,15 @@ if(WIN32)
         $<$<C_COMPILER_ID:MSVC>:${LIBUSB_ROOT}/libusb-1.0.rc>
     )
     target_compile_definitions(usb-1.0 PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
-    target_link_libraries(usb-1.0 PRIVATE windowsapp)
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+        # UWP/Store builds require the WindowsApp umbrella library
+        target_link_libraries(usb-1.0 PRIVATE windowsapp)
+    else()
+        # windowsapp pulls in API-set imports unavailable on Windows 7
+        target_link_libraries(usb-1.0 PRIVATE kernel32 user32)
+    endif()
+
     if(LIBUSB_ENABLE_WINDOWS_HOTPLUG)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/windows_hotplug.c"
