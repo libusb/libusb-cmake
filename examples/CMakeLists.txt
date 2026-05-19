@@ -12,7 +12,8 @@ if(MSVC)
         "${LIBUSB_ROOT}/../msvc/getopt/getopt1.c"
     )
     # Need to pass HAVE_CONFIG_H so getopt.h can load the config header
-    target_compile_definitions(getoptMSVC PRIVATE HAVE_CONFIG_H)
+    # _GL_UNUSED: gnulib no-op attribute macro, empty for MSVC
+    target_compile_definitions(getoptMSVC PRIVATE HAVE_CONFIG_H _GL_UNUSED=)
     target_include_directories(getoptMSVC
         PUBLIC "${LIBUSB_ROOT}/../msvc/getopt/"
         PRIVATE "${LIBUSB_GEN_INCLUDES}"
