@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   update:
-    name: Update libusb and open a draft PR
+    name: Update libusb and open a PR
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -243,11 +243,10 @@ jobs:
             echo
             echo "Libusb-Upstream-Ref: $REQUESTED_REF"
             echo "Libusb-Upstream-Commit: $TARGET_SHA"
-            echo "Assisted-by: codex:gpt-5"
           } > "$message_file"
           git commit --file "$message_file"
 
-      - name: Push the branch, open a draft PR, and start CI
+      - name: Push the branch, open a PR, and start CI
         if: steps.plan.outputs.should_update == 'true'
         env:
           BRANCH: ${{ steps.plan.outputs.branch }}
@@ -265,7 +264,7 @@ jobs:
 
           body_file="$(mktemp)"
           cat > "$body_file" <<EOF
-          This draft PR updates the vendored \`libusb/\` tree from upstream.
+          This PR updates the vendored \`libusb/\` tree from upstream.
 
           - Requested ref: \`$REQUESTED_REF\`
           - Previous commit: [\`${PREVIOUS_SHA:0:12}\`](https://github.com/libusb/libusb/commit/$PREVIOUS_SHA)
@@ -276,7 +275,6 @@ jobs:
 
           <!-- libusb-upstream-commit: $TARGET_SHA -->
 
-          Assisted-by: codex:gpt-5
           EOF
 
           pr_url="$(
@@ -284,7 +282,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --base "$BASE_BRANCH" \
               --head "$BRANCH" \
-              --draft \
               --title "Update libusb to $REQUESTED_REF ($SHORT_SHA)" \
               --body-file "$body_file"
           )"
@@ -293,7 +290,7 @@ jobs:
 
           {
             echo
-            echo "### Draft pull request"
+            echo "### Pull request"
             echo
             echo "$pr_url"
             echo
