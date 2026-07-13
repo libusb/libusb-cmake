@@ -34,9 +34,9 @@ if(_result)
 endif()
 
 if(IS_ABSOLUTE "${TEST_CMAKE_PACKAGE_DIR}")
-    set(_legacy_package_dir "${TEST_CMAKE_PACKAGE_DIR}")
+    set(_package_dir "${TEST_CMAKE_PACKAGE_DIR}")
 else()
-    set(_legacy_package_dir "${_install_prefix}/${TEST_CMAKE_PACKAGE_DIR}")
+    set(_package_dir "${_install_prefix}/${TEST_CMAKE_PACKAGE_DIR}")
 endif()
 
 function(libusb_test_installed_package _name _legacy)
@@ -54,10 +54,14 @@ function(libusb_test_installed_package _name _legacy)
             "-DLIBUSB_REQUIRED_VERSION=${TEST_PACKAGE_VERSION}"
         )
     endif()
+    if(TEST_CROSSCOMPILING AND NOT _legacy)
+        # Cross toolchains commonly restrict package searches to their sysroot.
+        list(APPEND _configure_command "-Dlibusb_DIR=${_package_dir}")
+    endif()
     if(_legacy)
         list(APPEND _configure_command
             -DLIBUSB_USE_LEGACY_TARGETS=ON
-            "-DLIBUSB_LEGACY_PACKAGE_DIR=${_legacy_package_dir}"
+            "-DLIBUSB_LEGACY_PACKAGE_DIR=${_package_dir}"
         )
     endif()
     if(TEST_GENERATOR_PLATFORM)
