@@ -145,16 +145,24 @@ jobs:
                   install/static/lib/libusb-1.0.a, \
                   install/static/include/libusb-1.0/libusb.h"
           fail: true
-      - name: Test Shared
+      - name: Test Shared/Static
         if: always()
-        working-directory: build/shared
         run: |
-          export PATH="$(pwd)/../../install/shared/bin:$PATH"
-          ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
-      - name: Test Static
-        if: always()
-        working-directory: build/static
-        run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
+          set +e
+          (
+            export PATH="$PWD/install/shared/bin:$PATH"
+            ctest --test-dir build/shared --output-junit "$PWD/build/shared/test_shared.xml" ${{ env.COMMON_CTEST_ARGS }}
+          ) &
+          shared_pid=$!
+          ctest --test-dir build/static --output-junit "$PWD/build/static/test_static.xml" ${{ env.COMMON_CTEST_ARGS }} &
+          static_pid=$!
+          wait "$shared_pid"
+          shared_status=$?
+          wait "$static_pid"
+          static_status=$?
+          if (( shared_status != 0 || static_status != 0 )); then
+            exit 1
+          fi
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v7
@@ -272,10 +280,9 @@ jobs:
       uses: TheMrMilchmann/setup-msvc-dev@v4
       with:
         arch: x64
-    - name: Configure Visual Studio/UWP
+    - name: Configure Visual Studio
       run: |
         cmake -B build/msvc -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/msvc -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
-        cmake -B build/uwp -S src -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/uwp -DLIBUSB_BUILD_EXAMPLES=OFF -DLIBUSB_BUILD_TESTING=OFF -DLIBUSB_BUILD_SHARED_LIBS=ON
     - name: Configure NMake/Ninja
       shell: cmd
       run: |
@@ -285,9 +292,6 @@ jobs:
         cmake -GNinja -B build\ninja_static -DCMAKE_INSTALL_PREFIX=install/ninja_static -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
     - name: Build Visual Studio
       working-directory: build/msvc
-      run: cmake --build . --config RelWithDebInfo --target install
-    - name: Build UWP
-      working-directory: build/uwp
       run: cmake --build . --config RelWithDebInfo --target install
     - name: Build NMake Shared
       working-directory: build/nmake_shared
@@ -311,9 +315,6 @@ jobs:
         files: "install/msvc/lib/usb-1.0.lib, \
                 install/msvc/bin/libusb-1.0.dll, \
                 install/msvc/include/libusb-1.0/libusb.h, \
-                install/uwp/lib/usb-1.0.lib, \
-                install/uwp/bin/libusb-1.0.dll, \
-                install/uwp/include/libusb-1.0/libusb.h, \
                 install/nmake_shared/lib/usb-1.0.lib, \
                 install/nmake_shared/bin/libusb-1.0.dll, \
                 install/nmake_shared/include/libusb-1.0/libusb.h, \
@@ -365,6 +366,33 @@ jobs:
           build/nmake_static/test_nmake_static.xml
           build/ninja_shared/test_ninja_shared.xml
           build/ninja_static/test_ninja_static.xml
+
+  windows-uwp-build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        path: src
+    - name: Set up MSVC for UWP
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
+        uwp: true
+    - name: Configure
+      run: |
+        $sdkVersion = $env:WindowsSDKVersion.TrimEnd('\')
+        cmake -B build/uwp -S src -DCMAKE_SYSTEM_NAME=WindowsStore "-DCMAKE_SYSTEM_VERSION:STRING=$sdkVersion" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/uwp -DLIBUSB_BUILD_EXAMPLES=OFF -DLIBUSB_BUILD_TESTING=OFF -DLIBUSB_BUILD_SHARED_LIBS=ON
+    - name: Build
+      working-directory: build/uwp
+      run: cmake --build . --config RelWithDebInfo --target install
+    - name: Check artifacts
+      uses: andstor/file-existence-action@v3
+      with:
+        files: "install/uwp/lib/usb-1.0.lib, \
+                install/uwp/bin/libusb-1.0.dll, \
+                install/uwp/include/libusb-1.0/libusb.h"
+        fail: true
 
 
   android-build:
