@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-get_filename_component(LIBUSB_ROOT "libusb/libusb" ABSOLUTE)
+get_filename_component(LIBUSB_SOURCE_ROOT "libusb" ABSOLUTE)
+set(LIBUSB_ROOT "${LIBUSB_SOURCE_ROOT}/libusb")
 
 # Get the version information from version.h ignoring the nano version as it appears in version_nano.h and so we need it?
 file(READ "${LIBUSB_ROOT}/version.h" VERSIONHEADERDATA)
@@ -136,6 +137,54 @@ endif()
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
 generate_config_file()
 
+set(LIBUSB_VERSION_DESCRIBE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/libusb-version-describe")
+set(LIBUSB_VERSION_DESCRIBE_HEADER "${LIBUSB_GEN_INCLUDES}/version_describe.h")
+set(LIBUSB_VERSION_DESCRIBE_LOCK "${CMAKE_CURRENT_SOURCE_DIR}/.github/libusb-upstream.describe")
+set(LIBUSB_VERSION_DESCRIBE_SCRIPT "${LIBUSB_SOURCE_ROOT}/build-aux/gen-describe.sh")
+set(LIBUSB_VERSION_DESCRIBE_DEPENDS)
+
+if(CMAKE_HOST_WIN32)
+    find_program(LIBUSB_POWERSHELL_EXECUTABLE NAMES powershell pwsh)
+    if(NOT LIBUSB_POWERSHELL_EXECUTABLE)
+        message(FATAL_ERROR "PowerShell is required to generate version_describe.h")
+    endif()
+    set(LIBUSB_VERSION_DESCRIBE_COMMAND
+        "${LIBUSB_POWERSHELL_EXECUTABLE}"
+        -NoProfile
+        -ExecutionPolicy Bypass
+        -File "${LIBUSB_SOURCE_ROOT}/build-aux/gen-describe.ps1"
+    )
+    set(LIBUSB_VERSION_DESCRIBE_DEPENDS
+        "${LIBUSB_SOURCE_ROOT}/build-aux/gen-describe.ps1"
+    )
+else()
+    find_program(LIBUSB_SH_EXECUTABLE NAMES sh)
+    if(NOT LIBUSB_SH_EXECUTABLE)
+        message(FATAL_ERROR "A POSIX shell is required to generate version_describe.h")
+    endif()
+    set(LIBUSB_VERSION_DESCRIBE_COMMAND
+        "${LIBUSB_SH_EXECUTABLE}"
+        "${LIBUSB_VERSION_DESCRIBE_SCRIPT}"
+    )
+endif()
+
+add_custom_command(
+    OUTPUT "${LIBUSB_VERSION_DESCRIBE_HEADER}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${LIBUSB_VERSION_DESCRIBE_ROOT}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${LIBUSB_VERSION_DESCRIBE_LOCK}"
+        "${LIBUSB_VERSION_DESCRIBE_ROOT}/.tarball-version"
+    COMMAND ${LIBUSB_VERSION_DESCRIBE_COMMAND}
+        "${LIBUSB_VERSION_DESCRIBE_ROOT}"
+        "${LIBUSB_VERSION_DESCRIBE_HEADER}"
+    DEPENDS
+        "${LIBUSB_VERSION_DESCRIBE_LOCK}"
+        "${LIBUSB_VERSION_DESCRIBE_SCRIPT}"
+        ${LIBUSB_VERSION_DESCRIBE_DEPENDS}
+    COMMENT "Generating version_describe.h"
+    VERBATIM
+)
+
 #
 #
 #
@@ -153,6 +202,7 @@ set_target_properties(usb-1.0 PROPERTIES
 # common sources
 target_sources(usb-1.0 PRIVATE
     "${LIBUSB_GEN_INCLUDES}/config.h"
+    "${LIBUSB_VERSION_DESCRIBE_HEADER}"
     "${LIBUSB_ROOT}/core.c"
     "${LIBUSB_ROOT}/descriptor.c"
     "${LIBUSB_ROOT}/hotplug.c"

@@ -48,10 +48,14 @@ jobs:
             exit 1
           fi
 
+          upstream_repo="$(mktemp -d)"
+          trap 'rm -rf "$upstream_repo"' EXIT
+          git -C "$upstream_repo" init --bare --quiet
+
           if [[ "$REQUESTED_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
             requested_sha="${REQUESTED_REF,,}"
-            git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$requested_sha"
-            target_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+            git -C "$upstream_repo" fetch --quiet --tags "$UPSTREAM_URL" "$requested_sha"
+            target_sha="$(git -C "$upstream_repo" rev-parse --verify 'FETCH_HEAD^{commit}')"
 
             if [[ "$target_sha" != "$requested_sha" ]]; then
               echo "::error title=Invalid commit SHA::The requested object does not resolve to that exact commit."
@@ -100,12 +104,18 @@ jobs:
                 ;;
             esac
 
-            git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$selected_ref"
-            target_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+            git -C "$upstream_repo" fetch --quiet --tags "$UPSTREAM_URL" "$selected_ref"
+            target_sha="$(git -C "$upstream_repo" rev-parse --verify 'FETCH_HEAD^{commit}')"
           fi
 
+          git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$target_sha"
           git cat-file -e "$target_sha:configure.ac"
           git cat-file -e "$target_sha:libusb/core.c"
+          target_describe="$(git -C "$upstream_repo" describe --tags --always "$target_sha")"
+          if [[ -z "$target_describe" ]]; then
+            echo "::error title=Missing upstream description::git describe produced no output for $target_sha."
+            exit 1
+          fi
 
           previous_sha="$(tr -d '\r\n' < .github/libusb-upstream.rev)"
           if [[ ! "$previous_sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -115,6 +125,20 @@ jobs:
 
           if ! git cat-file -e "$previous_sha^{commit}" 2>/dev/null; then
             git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$previous_sha"
+          fi
+          if ! git -C "$upstream_repo" cat-file -e "$previous_sha^{commit}" 2>/dev/null; then
+            git -C "$upstream_repo" fetch --no-tags --depth=1 "$UPSTREAM_URL" "$previous_sha"
+          fi
+
+          previous_describe="$(tr -d '\r\n' < .github/libusb-upstream.describe)"
+          if [[ -z "$previous_describe" ]]; then
+            echo "::error title=Invalid description lock::.github/libusb-upstream.describe must contain one git-describe value."
+            exit 1
+          fi
+          described_sha="$(git -C "$upstream_repo" rev-parse --verify "$previous_describe^{commit}" 2>/dev/null || true)"
+          if [[ "$described_sha" != "$previous_sha" ]]; then
+            echo "::error title=Description lock mismatch::.github/libusb-upstream.describe does not resolve to .github/libusb-upstream.rev."
+            exit 1
           fi
 
           current_tree="$(git rev-parse 'HEAD:libusb')"
@@ -127,6 +151,7 @@ jobs:
           {
             echo "sha=$target_sha"
             echo "short_sha=${target_sha:0:12}"
+            echo "describe=$target_describe"
             echo "previous_sha=$previous_sha"
           } >> "$GITHUB_OUTPUT"
 
@@ -136,6 +161,7 @@ jobs:
             echo "- Requested ref: \`$REQUESTED_REF\`"
             echo "- Current commit: [\`${previous_sha:0:12}\`](https://github.com/libusb/libusb/commit/$previous_sha)"
             echo "- Target commit: [\`${target_sha:0:12}\`](https://github.com/libusb/libusb/commit/$target_sha)"
+            echo "- Target description: \`$target_describe\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Plan the update
@@ -201,6 +227,7 @@ jobs:
           BRANCH: ${{ steps.plan.outputs.branch }}
           REQUESTED_REF: ${{ inputs.upstream_ref }}
           TARGET_SHA: ${{ steps.upstream.outputs.sha }}
+          TARGET_DESCRIBE: ${{ steps.upstream.outputs.describe }}
           SHORT_SHA: ${{ steps.upstream.outputs.short_sha }}
         shell: bash
         run: |
@@ -216,7 +243,8 @@ jobs:
           git rm -r --quiet -- libusb
           git read-tree --prefix=libusb/ -u "$TARGET_SHA^{tree}"
           printf '%s\n' "$TARGET_SHA" > .github/libusb-upstream.rev
-          git add .github/libusb-upstream.rev
+          printf '%s\n' "$TARGET_DESCRIBE" > .github/libusb-upstream.describe
+          git add .github/libusb-upstream.rev .github/libusb-upstream.describe
 
           staged_root="$(git write-tree)"
           imported_tree="$(git rev-parse "$staged_root:libusb")"
@@ -226,7 +254,7 @@ jobs:
             exit 1
           fi
 
-          unexpected_paths="$(git diff --cached --name-only | grep -Ev '^(libusb/|\.github/libusb-upstream\.rev$)' || true)"
+          unexpected_paths="$(git diff --cached --name-only | grep -Ev '^(libusb/|\.github/libusb-upstream\.(rev|describe)$)' || true)"
           if [[ -n "$unexpected_paths" ]]; then
             echo "::error title=Unexpected changed paths::The import changed files outside libusb/ and its revision lock."
             printf '%s\n' "$unexpected_paths"
@@ -243,6 +271,7 @@ jobs:
             echo
             echo "Libusb-Upstream-Ref: $REQUESTED_REF"
             echo "Libusb-Upstream-Commit: $TARGET_SHA"
+            echo "Libusb-Upstream-Describe: $TARGET_DESCRIBE"
           } > "$message_file"
           git commit --file "$message_file"
 
@@ -254,6 +283,7 @@ jobs:
           PREVIOUS_SHA: ${{ steps.upstream.outputs.previous_sha }}
           REQUESTED_REF: ${{ inputs.upstream_ref }}
           TARGET_SHA: ${{ steps.upstream.outputs.sha }}
+          TARGET_DESCRIBE: ${{ steps.upstream.outputs.describe }}
           SHORT_SHA: ${{ steps.upstream.outputs.short_sha }}
         shell: bash
         run: |
@@ -269,9 +299,10 @@ jobs:
           - Requested ref: \`$REQUESTED_REF\`
           - Previous commit: [\`${PREVIOUS_SHA:0:12}\`](https://github.com/libusb/libusb/commit/$PREVIOUS_SHA)
           - Resolved commit: [\`$TARGET_SHA\`](https://github.com/libusb/libusb/commit/$TARGET_SHA)
+          - Upstream description: \`$TARGET_DESCRIBE\`
           - Workflow run: [$GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The workflow verified that \`libusb/\` matches the resolved upstream tree byte-for-byte. The full revision is also recorded in \`.github/libusb-upstream.rev\` so it remains available if the final commit message is edited while merging.
+          The workflow verified that \`libusb/\` matches the resolved upstream tree byte-for-byte. The full revision and its \`git describe\` value are recorded in \`.github/libusb-upstream.rev\` and \`.github/libusb-upstream.describe\` for the CMake build.
 
           <!-- libusb-upstream-commit: $TARGET_SHA -->
 
