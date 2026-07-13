@@ -9,9 +9,9 @@ foreach(_variable
     endif()
 endforeach()
 
-if(NOT TEST_CROSSCOMPILING
+if((NOT TEST_CROSSCOMPILING OR TEST_CROSSCOMPILING_EMULATOR)
         AND (NOT DEFINED TEST_CTEST_COMMAND OR TEST_CTEST_COMMAND STREQUAL ""))
-    message(FATAL_ERROR "TEST_CTEST_COMMAND is required for native tests")
+    message(FATAL_ERROR "TEST_CTEST_COMMAND is required to run consumer tests")
 endif()
 
 set(_install_prefix "${TEST_ROOT}/install")
@@ -78,6 +78,11 @@ function(libusb_test_installed_package _name _legacy)
             "-DCMAKE_TOOLCHAIN_FILE=${TEST_TOOLCHAIN_FILE}"
         )
     endif()
+    if(TEST_CROSSCOMPILING_EMULATOR)
+        list(APPEND _configure_command
+            "-DCMAKE_CROSSCOMPILING_EMULATOR=${TEST_CROSSCOMPILING_EMULATOR}"
+        )
+    endif()
     if(TEST_ANDROID_ABI)
         list(APPEND _configure_command "-DANDROID_ABI=${TEST_ANDROID_ABI}")
     endif()
@@ -112,7 +117,7 @@ function(libusb_test_installed_package _name _legacy)
         )
     endif()
 
-    if(NOT TEST_CROSSCOMPILING)
+    if(NOT TEST_CROSSCOMPILING OR TEST_CROSSCOMPILING_EMULATOR)
         set(_ctest_command "${TEST_CTEST_COMMAND}" --output-on-failure)
         if(TEST_CONFIG)
             list(APPEND _ctest_command -C "${TEST_CONFIG}")

@@ -144,6 +144,7 @@ option(LIBUSB_BUILD_EXAMPLES "Build Example Applications" OFF)
 
 option(LIBUSB_INSTALL_TARGETS "Install libusb targets" ON)
 cmake_dependent_option(LIBUSB_EXPORT_INSTALL_TARGETS "Install CMake package files" ON LIBUSB_INSTALL_TARGETS OFF)
+cmake_dependent_option(LIBUSB_INSTALL_PKGCONFIG "Install pkg-config metadata" ON LIBUSB_INSTALL_TARGETS OFF)
 
 option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" ON)
 
@@ -409,13 +410,13 @@ else()
             "${LIBUSB_ROOT}/os/emscripten_webusb.cpp"
         )
         target_compile_options(usb-1.0 PRIVATE -pthread)
-        # Upstream requires these on the final executable, not only the library.
+        # Embind and Asyncify must reach the final executable.
+        target_link_libraries(usb-1.0 PUBLIC -lembind)
         target_link_options(usb-1.0 PUBLIC
             -pthread
-            --bind
-            "SHELL:-s ASYNCIFY"
+            -sASYNCIFY
         )
-        list(APPEND LIBUSB_PC_LIBS_PRIVATE -pthread --bind -s ASYNCIFY)
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -pthread -lembind -sASYNCIFY)
     else()
         message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
     endif()
@@ -440,10 +441,12 @@ if(LIBUSB_INSTALL_TARGETS)
         EXPORT libusb-targets
     )
 
-    libusb_configure_pc()
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libusb-1.0.pc"
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-    )
+    if(LIBUSB_INSTALL_PKGCONFIG)
+        libusb_configure_pc()
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libusb-1.0.pc"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+        )
+    endif()
 
     if(LIBUSB_EXPORT_INSTALL_TARGETS)
         set(LIBUSB_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/libusb")

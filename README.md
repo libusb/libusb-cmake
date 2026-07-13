@@ -105,8 +105,8 @@ not link libusb. Normal consumers should use `libusb::usb-1.0`.
 
 ### pkg-config
 
-The installation also provides `libusb-1.0.pc`, using the same module name as
-upstream Autotools. For a nonstandard prefix:
+The default installation also provides `libusb-1.0.pc`, using the same module
+name as upstream Autotools. For a nonstandard prefix:
 
 ```console
 export PKG_CONFIG_PATH=/path/to/install/lib/pkgconfig
@@ -130,7 +130,8 @@ target_link_libraries(my_app PRIVATE PkgConfig::libusb)
 
 Otherwise, prefer the installed CMake package above. The `.pc` file records the
 configure-time install prefix, so set `CMAKE_INSTALL_PREFIX` during libusb
-configuration as shown above.
+configuration as shown above. Configure with `-DLIBUSB_INSTALL_PKGCONFIG=OFF`
+to omit this metadata while retaining the other install artifacts.
 
 ## CMake options
 
@@ -139,8 +140,9 @@ configuration as shown above.
 | `LIBUSB_BUILD_SHARED_LIBS` | Current `BUILD_SHARED_LIBS` value; `OFF` if false or unset | Build a shared instead of static library |
 | `LIBUSB_BUILD_EXAMPLES` | `OFF` | Build bundled examples |
 | `LIBUSB_BUILD_TESTING` | `OFF` | Build and register tests |
-| `LIBUSB_INSTALL_TARGETS` | `ON` | Install the library, public header, and pkg-config metadata |
+| `LIBUSB_INSTALL_TARGETS` | `ON` | Install the library and public header |
 | `LIBUSB_EXPORT_INSTALL_TARGETS` | `ON` when installing | Install the CMake package config, target export, and version file |
+| `LIBUSB_INSTALL_PKGCONFIG` | `ON` when installing | Install `libusb-1.0.pc` pkg-config metadata |
 | `LIBUSB_TARGETS_INCLUDE_USING_SYSTEM` | `ON` | Treat public libusb headers as system headers |
 | `LIBUSB_ENABLE_LOGGING` | `ON` | Compile logging support |
 | `LIBUSB_ENABLE_DEBUG_LOGGING` | `OFF` | Enable debug logging |
@@ -155,7 +157,8 @@ the library type matters, set `LIBUSB_BUILD_SHARED_LIBS` explicitly; the global
 
 The default installation includes the library, `include/libusb-1.0/libusb.h`,
 the `libusb` CMake package under the platform library directory, and
-`${CMAKE_INSTALL_LIBDIR}/pkgconfig/libusb-1.0.pc`. The legacy
+`${CMAKE_INSTALL_LIBDIR}/pkgconfig/libusb-1.0.pc` when
+`LIBUSB_INSTALL_PKGCONFIG` is enabled. The legacy
 `usb-1.0-targets.cmake` entry point is kept for consumers of libusb-cmake 1.0.30;
 new consumers should use `find_package(libusb CONFIG)`.
 

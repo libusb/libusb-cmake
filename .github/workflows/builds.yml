@@ -29,11 +29,19 @@ jobs:
         rm -rf build install
         cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
         cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+        cmake -B build/no-pkgconfig -S src -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install/no-pkgconfig -DLIBUSB_BUILD_SHARED_LIBS=OFF -DLIBUSB_INSTALL_PKGCONFIG=OFF
+        cmake -B build/no-cmake-package -S src -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install/no-cmake-package -DLIBUSB_BUILD_SHARED_LIBS=OFF -DLIBUSB_EXPORT_INSTALL_TARGETS=OFF
     - name: Build Shared
       working-directory: build/shared
       run: ninja install
     - name: Build Static
       working-directory: build/static
+      run: ninja install
+    - name: Build without pkg-config metadata
+      working-directory: build/no-pkgconfig
+      run: ninja install
+    - name: Build without CMake package metadata
+      working-directory: build/no-cmake-package
       run: ninja install
     - name: Check artifacts
       uses: andstor/file-existence-action@v3
@@ -53,6 +61,16 @@ jobs:
                 install/static/lib/cmake/libusb/usb-1.0-targets.cmake, \
                 install/static/lib/pkgconfig/libusb-1.0.pc"
         fail: true
+    - name: Check metadata install options are independent
+      run: |
+        test -f install/no-pkgconfig/lib/libusb-1.0.a
+        test -f install/no-pkgconfig/include/libusb-1.0/libusb.h
+        test -f install/no-pkgconfig/lib/cmake/libusb/libusb-config.cmake
+        test ! -e install/no-pkgconfig/lib/pkgconfig/libusb-1.0.pc
+        test -f install/no-cmake-package/lib/libusb-1.0.a
+        test -f install/no-cmake-package/include/libusb-1.0/libusb.h
+        test -f install/no-cmake-package/lib/pkgconfig/libusb-1.0.pc
+        test ! -e install/no-cmake-package/lib/cmake/libusb
     - name: Test pkg-config packages
       run: |
         shared_pc="$PWD/install/shared/lib/pkgconfig"
@@ -479,7 +497,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install ninja-build
+        sudo apt install ninja-build pkg-config
     - name: Configure
       run: |
         rm -rf build install
@@ -509,8 +527,21 @@ jobs:
           -DTEST_GENERATOR=Ninja \
           -DTEST_BUILD_TYPE=Release \
           -DTEST_CROSSCOMPILING=ON \
+          -DTEST_CROSSCOMPILING_EMULATOR="$EMSDK_NODE" \
+          -DTEST_CTEST_COMMAND="$(command -v ctest)" \
           -DTEST_TOOLCHAIN_FILE="$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake" \
           -P src/tests/package/run.cmake
+    - name: Test pkg-config package
+      run: |
+        pc_dir="$PWD/install/static/lib/pkgconfig"
+        PKG_CONFIG_LIBDIR="$pc_dir" pkg-config --validate libusb-1.0
+        emcc -c src/tests/package/emscripten_runtime.c \
+          $(PKG_CONFIG_LIBDIR="$pc_dir" pkg-config --cflags libusb-1.0) \
+          -o build/pkgconfig-emscripten.o
+        em++ build/pkgconfig-emscripten.o \
+          $(PKG_CONFIG_LIBDIR="$pc_dir" pkg-config --libs --static libusb-1.0) \
+          -o build/pkgconfig-emscripten.js
+        timeout --kill-after=5s 30s "$EMSDK_NODE" build/pkgconfig-emscripten.js
 
   netbsd-build:
     runs-on: ubuntu-latest
