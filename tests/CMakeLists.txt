@@ -41,6 +41,42 @@ add_test(NAME stress_mt COMMAND stress_mt)
 add_libusb_test(set_option "set_option.c")
 add_libusb_test(init_context "init_context.c")
 
+# umockdev is a Linux-only test dependency.  As in libusb's Autotools build,
+# discover it opportunistically so ordinary test builds do not require it.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(STATUS "Skipping umockdev test: it is supported only on Linux")
+elseif(NOT LIBUSB_ENABLE_LOGGING)
+    message(STATUS "Skipping umockdev test: it requires LIBUSB_ENABLE_LOGGING=ON")
+elseif(LIBUSB_ENABLE_DEBUG_LOGGING)
+    message(STATUS "Skipping umockdev test: it requires LIBUSB_ENABLE_DEBUG_LOGGING=OFF")
+else()
+    find_package(PkgConfig QUIET)
+    if(NOT PkgConfig_FOUND)
+        message(STATUS "Skipping umockdev test: PkgConfig was not found")
+    else()
+        pkg_check_modules(UMOCKDEV QUIET IMPORTED_TARGET "umockdev-1.0>=0.16.0")
+        if(NOT UMOCKDEV_FOUND)
+            message(STATUS "Skipping umockdev test: umockdev-1.0 >= 0.16.0 was not found")
+        else()
+            pkg_check_modules(UMOCKDEV_HOTPLUG QUIET "umockdev-1.0>=0.17.7")
+            add_executable(umockdev "${TESTS_ROOT}/umockdev.c")
+            target_link_libraries(umockdev PRIVATE libusb_tests_build_interface PkgConfig::UMOCKDEV)
+            if(UMOCKDEV_HOTPLUG_FOUND)
+                target_compile_definitions(umockdev PRIVATE UMOCKDEV_HOTPLUG=1)
+            else()
+                message(STATUS "umockdev test: hotplug add/remove subtest requires umockdev-1.0 >= 0.17.7")
+            endif()
+            # Keep libumockdev-preload on the link line while --as-needed is disabled.
+            target_link_options(umockdev PRIVATE
+                "LINKER:--push-state,--no-as-needed"
+                "LINKER:-lumockdev-preload"
+                "LINKER:--pop-state"
+            )
+            add_test(NAME umockdev COMMAND umockdev)
+        endif()
+    endif()
+endif()
+
 # the Darwin backend has special backdoor for this test,
 # which is only available in static builds
 if(APPLE AND NOT LIBUSB_BUILD_SHARED_LIBS)

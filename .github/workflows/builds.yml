@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install libudev-dev ninja-build
+        sudo apt install libudev-dev libumockdev-dev ninja-build umockdev
     - name: Configure
       run: |
         rm -rf build install
