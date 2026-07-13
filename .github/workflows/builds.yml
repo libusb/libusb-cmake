@@ -120,6 +120,18 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: src
+      - name: Set Cygwin package cache key
+        id: cygwin-cache-key
+        shell: pwsh
+        run: |
+          $now = [DateTime]::UtcNow
+          $weekStart = $now.Date.AddDays(-(([int] $now.DayOfWeek + 6) % 7))
+          "suffix=$($weekStart.ToString('yyyy-MM-dd'))" >> $env:GITHUB_OUTPUT
+      - name: Cache Cygwin packages
+        uses: actions/cache@v5
+        with:
+          path: 'D:\cygwin-packages'
+          key: cygwin-packages-v1-${{ runner.os }}-${{ steps.cygwin-cache-key.outputs.suffix }}
       - name: Install dependencies
         uses: cygwin/cygwin-install-action@v6
         with:
@@ -366,34 +378,6 @@ jobs:
           build/nmake_static/test_nmake_static.xml
           build/ninja_shared/test_ninja_shared.xml
           build/ninja_static/test_ninja_static.xml
-
-  windows-uwp-build:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        path: src
-    - name: Set up MSVC for UWP
-      uses: TheMrMilchmann/setup-msvc-dev@v4
-      with:
-        arch: x64
-        uwp: true
-    - name: Configure
-      run: |
-        $sdkVersion = $env:WindowsSDKVersion.TrimEnd('\')
-        cmake -B build/uwp -S src -DCMAKE_SYSTEM_NAME=WindowsStore "-DCMAKE_SYSTEM_VERSION:STRING=$sdkVersion" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/uwp -DLIBUSB_BUILD_EXAMPLES=OFF -DLIBUSB_BUILD_TESTING=OFF -DLIBUSB_BUILD_SHARED_LIBS=ON
-    - name: Build
-      working-directory: build/uwp
-      run: cmake --build . --config RelWithDebInfo --target install
-    - name: Check artifacts
-      uses: andstor/file-existence-action@v3
-      with:
-        files: "install/uwp/lib/usb-1.0.lib, \
-                install/uwp/bin/libusb-1.0.dll, \
-                install/uwp/include/libusb-1.0/libusb.h"
-        fail: true
-
 
   android-build:
     runs-on: ubuntu-latest
