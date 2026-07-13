@@ -80,14 +80,24 @@ time to build the bundled examples or tests.
 
 ### Installed CMake package
 
-Configure the consuming project with `-DCMAKE_PREFIX_PATH=/path/to/install`
-when the installation prefix is not in a standard location, then use:
+The installation provides `libusb-config.cmake`. A minimal consuming
+`CMakeLists.txt` is:
 
 ```cmake
-find_package(libusb CONFIG REQUIRED)
+cmake_minimum_required(VERSION 3.16)
+project(my_app LANGUAGES C)
+
+find_package(libusb 1.0 CONFIG REQUIRED)
 
 add_executable(my_app main.c)
 target_link_libraries(my_app PRIVATE libusb::usb-1.0)
+```
+
+For a nonstandard installation prefix:
+
+```console
+cmake -S consumer -B consumer/build -DCMAKE_PREFIX_PATH=/path/to/install
+cmake --build consumer/build
 ```
 
 `libusb::include` carries only the public include directory for targets that do
@@ -95,17 +105,32 @@ not link libusb. Normal consumers should use `libusb::usb-1.0`.
 
 ### pkg-config
 
-The installed module uses the upstream name `libusb-1.0`. For a nonstandard
-prefix, add its pkg-config directory to `PKG_CONFIG_PATH`:
+The installation also provides `libusb-1.0.pc`, using the same module name as
+upstream Autotools. For a nonstandard prefix:
 
 ```console
 export PKG_CONFIG_PATH=/path/to/install/lib/pkgconfig
+pkg-config --modversion libusb-1.0
 cc main.c -o my_app $(pkg-config --cflags --libs libusb-1.0)
 ```
 
-Use `pkg-config --static` when linking the static archive so its private system
-libraries are included. The `.pc` file records the configure-time install
-prefix, so set `CMAKE_INSTALL_PREFIX` during configuration as shown above.
+For a static installation, request its private system libraries:
+
+```console
+cc main.c -o my_app-static $(pkg-config --cflags --libs --static libusb-1.0)
+```
+
+A CMake consumer that standardizes on pkg-config can use its imported target:
+
+```cmake
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
+target_link_libraries(my_app PRIVATE PkgConfig::libusb)
+```
+
+Otherwise, prefer the installed CMake package above. The `.pc` file records the
+configure-time install prefix, so set `CMAKE_INSTALL_PREFIX` during libusb
+configuration as shown above.
 
 ## CMake options
 
@@ -131,8 +156,8 @@ the library type matters, set `LIBUSB_BUILD_SHARED_LIBS` explicitly; the global
 The default installation includes the library, `include/libusb-1.0/libusb.h`,
 the `libusb` CMake package under the platform library directory, and
 `${CMAKE_INSTALL_LIBDIR}/pkgconfig/libusb-1.0.pc`. The legacy
-`usb-1.0-targets.cmake` filename is kept as a compatibility wrapper around
-`libusb-targets.cmake`.
+`usb-1.0-targets.cmake` entry point is kept for consumers of libusb-cmake 1.0.30;
+new consumers should use `find_package(libusb CONFIG)`.
 
 [libusb]: https://github.com/libusb/libusb
 [subtree]: https://www.atlassian.com/git/tutorials/git-subtree
