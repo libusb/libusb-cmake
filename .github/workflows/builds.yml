@@ -14,8 +14,7 @@ jobs:
   ubuntu-build:
     runs-on: ubuntu-latest
     env:
-      # set_option known to fail on Github Actions
-      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure -E "^set_option$"
+      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
 
     steps:
     - uses: actions/checkout@v6
