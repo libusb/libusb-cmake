@@ -1,3 +1,4 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * Windows backend common header for libusb 1.0
  *
@@ -9,6 +10,8 @@
  * With contributions from Michael Plante, Orin Eman et al.
  * Parts of this code adapted from libusb-win32-v1 by Stephan Meyer
  * Major code testing contribution by Xiaofan Chen
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -160,7 +163,7 @@ enum windows_version {
 
 extern enum windows_version windows_version;
 
-#include <pshpack1.h>
+#pragma pack(push, 1)
 
 typedef struct USB_DEVICE_DESCRIPTOR {
 	UCHAR  bLength;
@@ -190,7 +193,7 @@ typedef struct USB_CONFIGURATION_DESCRIPTOR {
 	UCHAR  MaxPower;
 } USB_CONFIGURATION_DESCRIPTOR, *PUSB_CONFIGURATION_DESCRIPTOR;
 
-#include <poppack.h>
+#pragma pack(pop)
 
 #define MAX_DEVICE_ID_LEN	200
 

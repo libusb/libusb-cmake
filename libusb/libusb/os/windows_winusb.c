@@ -1,3 +1,4 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * windows backend for libusb 1.0
  * Copyright © 2009-2012 Pete Batard <pete@akeo.ie>
@@ -7,6 +8,8 @@
  * HID Reports IOCTLs inspired from HIDAPI by Alan Ott, Signal 11 Software
  * Hash table functions adapted from glibc, by Ulrich Drepper et al.
  * Major code testing contribution by Xiaofan Chen
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -2719,8 +2722,8 @@ const struct windows_backend winusb_backend = {
  */
 
 static const char * const composite_driver_names[] = {
-  "USBCCGP", // (Windows built-in) USB Composite Device
-  "dg_ssudbus" // SAMSUNG Mobile USB Composite Device
+	"USBCCGP", // (Windows built-in) USB Composite Device
+	"dg_ssudbus" // SAMSUNG Mobile USB Composite Device
 };
 static const char * const winusbx_driver_names[] = {"libusbK", "libusb0", "WinUSB"};
 static const char * const hid_driver_names[] = {"HIDUSB", "MOUHID", "KBDHID"};
@@ -3194,6 +3197,15 @@ static int winusbx_claim_interface(int sub_api, struct libusb_device_handle *dev
 	if (((is_using_usbccgp) || (iface == 0)) &&
 	    (!is_associated_interface || (iface==priv->usb_interface[iface].first_associated_interface))) {
 		// composite device (independent interfaces) or interface 0
+
+		// This interface may already have been auto-claimed as the first
+		// interface while another interface was claimed before it. Calling
+		// Initialize() again on the same handle would overwrite and leak the
+		// existing api_handle (the one any associated interface was derived
+		// from), so treat an already-initialized interface as done.
+		if (HANDLE_VALID(handle_priv->interface_handle[iface].api_handle))
+			return LIBUSB_SUCCESS;
+
 		file_handle = handle_priv->interface_handle[iface].dev_handle;
 		if (!HANDLE_VALID(file_handle))
 			return LIBUSB_ERROR_NOT_FOUND;
