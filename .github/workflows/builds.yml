@@ -122,11 +122,11 @@ jobs:
           path: src
       - name: Set Cygwin package cache key
         id: cygwin-cache-key
-        shell: pwsh
+        shell: bash
         run: |
-          $now = [DateTime]::UtcNow
-          $weekStart = $now.Date.AddDays(-(([int] $now.DayOfWeek + 6) % 7))
-          "suffix=$($weekStart.ToString('yyyy-MM-dd'))" >> $env:GITHUB_OUTPUT
+          days_since_monday=$(($(date -u +%u) - 1))
+          week_start=$(date -u --date="$days_since_monday days ago" +%F)
+          echo "suffix=$week_start" >> "$GITHUB_OUTPUT"
       - name: Cache Cygwin packages
         uses: actions/cache@v5
         with:
@@ -157,24 +157,16 @@ jobs:
                   install/static/lib/libusb-1.0.a, \
                   install/static/include/libusb-1.0/libusb.h"
           fail: true
-      - name: Test Shared/Static
+      - name: Test Shared
         if: always()
+        working-directory: build/shared
         run: |
-          set +e
-          (
-            export PATH="$PWD/install/shared/bin:$PATH"
-            ctest --test-dir build/shared --output-junit "$PWD/build/shared/test_shared.xml" ${{ env.COMMON_CTEST_ARGS }}
-          ) &
-          shared_pid=$!
-          ctest --test-dir build/static --output-junit "$PWD/build/static/test_static.xml" ${{ env.COMMON_CTEST_ARGS }} &
-          static_pid=$!
-          wait "$shared_pid"
-          shared_status=$?
-          wait "$static_pid"
-          static_status=$?
-          if (( shared_status != 0 || static_status != 0 )); then
-            exit 1
-          fi
+          export PATH="$(pwd)/../../install/shared/bin:$PATH"
+          ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+      - name: Test Static
+        if: always()
+        working-directory: build/static
+        run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v7
