@@ -17,6 +17,12 @@ project(usb-1.0
     VERSION ${LIBUSB_VERSION}
     LANGUAGES C
 )
+
+if(CYGWIN)
+    # Match upstream's Cygwin build flags for the Windows backend.
+    add_compile_options(-mwin32)
+endif()
+
 if(EMSCRIPTEN)
     set(CMAKE_CXX_STANDARD 20)
     enable_language(CXX)
@@ -65,7 +71,7 @@ function(generate_config_file)
     endif()
 
     # Set vars that will be written into the config file.
-    if(WIN32)
+    if(WIN32 OR CYGWIN)
         set(PLATFORM_WINDOWS 1)
     else()
         set(PLATFORM_POSIX 1)
@@ -78,7 +84,7 @@ function(generate_config_file)
         set(ENABLE_DEBUG_LOGGING ${LIBUSB_ENABLE_DEBUG_LOGGING})
     endif()
 
-    if(WIN32 AND LIBUSB_ENABLE_WINDOWS_HOTPLUG)
+    if((WIN32 OR CYGWIN) AND LIBUSB_ENABLE_WINDOWS_HOTPLUG)
         set(LIBUSB_WINDOWS_HOTPLUG 1)
     endif()
 
@@ -116,7 +122,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     option(LIBUSB_ENABLE_UDEV "Enable udev backend for device enumeration" ON)
 endif()
 
-if(WIN32)
+if(WIN32 OR CYGWIN)
     option(LIBUSB_ENABLE_WINDOWS_HOTPLUG "Enable Windows hotplug support" OFF)
 endif()
 
@@ -176,7 +182,7 @@ target_include_directories(usb-1.0
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
 )
 
-if(WIN32)
+if(WIN32 OR CYGWIN)
     target_sources(usb-1.0 PRIVATE
         "${LIBUSB_ROOT}/libusb-1.0.def"
         "${LIBUSB_ROOT}/os/events_windows.c"

@@ -105,6 +105,65 @@ jobs:
           build/shared/test_shared.xml
           build/static/test_static.xml
 
+  windows-cygwin-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
+    env:
+      COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
+
+    steps:
+      - name: Configure Git line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@v6
+        with:
+          path: src
+      - name: Install dependencies
+        uses: cygwin/cygwin-install-action@v6
+        with:
+          install-dir: 'C:\cygwin'
+          packages: cmake gcc-core ninja
+      - name: Configure
+        run: |
+          rm -rf build install
+          cmake -B build/shared -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+          cmake -B build/static -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+      - name: Build Shared
+        working-directory: build/shared
+        run: ninja install
+      - name: Build Static
+        working-directory: build/static
+        run: ninja install
+      - name: Check artifacts
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "install/shared/lib/libusb-1.0.dll.a, \
+                  install/shared/bin/libusb-1.0.dll, \
+                  install/shared/include/libusb-1.0/libusb.h, \
+                  install/static/lib/libusb-1.0.a, \
+                  install/static/include/libusb-1.0/libusb.h"
+          fail: true
+      - name: Test Shared
+        if: always()
+        working-directory: build/shared
+        run: |
+          export PATH="$(pwd)/../../install/shared/bin:$PATH"
+          ctest --output-junit test_shared.xml ${{ env.COMMON_CTEST_ARGS }}
+      - name: Test Static
+        if: always()
+        working-directory: build/static
+        run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Test Results Cygwin
+          path: |
+            build/shared/test_shared.xml
+            build/static/test_static.xml
+
   windows-mingw-build:
     runs-on: windows-latest
     defaults:
@@ -152,6 +211,51 @@ jobs:
         if: always()
         working-directory: build/static
         run: ctest --output-junit test_static.xml ${{ env.COMMON_CTEST_ARGS }}
+
+  fedora-mingw-build:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+
+    steps:
+      - name: Install dependencies
+        run: dnf install -y cmake git mingw32-gcc mingw64-gcc ninja-build
+      - uses: actions/checkout@v6
+        with:
+          path: src
+      - name: Configure
+        run: |
+          rm -rf build install
+          mingw32-cmake -B build/shared_32 -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared_32 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+          mingw32-cmake -B build/static_32 -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static_32 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+          mingw64-cmake -B build/shared_64 -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/shared_64 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+          mingw64-cmake -B build/static_64 -S src -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/static_64 -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
+      - name: Build Shared x86
+        working-directory: build/shared_32
+        run: ninja install
+      - name: Build Static x86
+        working-directory: build/static_32
+        run: ninja install
+      - name: Build Shared x64
+        working-directory: build/shared_64
+        run: ninja install
+      - name: Build Static x64
+        working-directory: build/static_64
+        run: ninja install
+      - name: Check artifacts
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "install/shared_32/lib/libusb-1.0.dll.a, \
+                  install/shared_32/bin/libusb-1.0.dll, \
+                  install/shared_32/include/libusb-1.0/libusb.h, \
+                  install/static_32/lib/libusb-1.0.a, \
+                  install/static_32/include/libusb-1.0/libusb.h, \
+                  install/shared_64/lib/libusb-1.0.dll.a, \
+                  install/shared_64/bin/libusb-1.0.dll, \
+                  install/shared_64/include/libusb-1.0/libusb.h, \
+                  install/static_64/lib/libusb-1.0.a, \
+                  install/static_64/include/libusb-1.0/libusb.h"
+          fail: true
+    # No test runs/results: cross-compiled Windows binaries are not runnable on a Linux host
 
   windows-msvc-build:
     runs-on: windows-latest
