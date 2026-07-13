@@ -3,8 +3,15 @@
 Community-supported CMake build system for [libusb]. The officially supported
 libusb build system remains Autotools in the upstream repository.
 
-This repository is self-contained. Its [`libusb/`](libusb/) directory is a git
-[subtree]; send changes to the bundled library sources to [libusb], not here.
+This repository is self-contained. Its [`libusb/`](libusb/) directory is
+vendored from upstream; it was historically maintained as a git [subtree].
+Send changes to the bundled library sources to [libusb], not here.
+
+Maintainers can run the **Update libusb** workflow with an upstream branch,
+tag, or full commit SHA. It imports the exact upstream tree, records the
+revision in [.github/libusb-upstream.rev](.github/libusb-upstream.rev), and
+opens a draft PR. This keeps updates compatible with the repository's required
+linear history.
 
 ## Requirements
 

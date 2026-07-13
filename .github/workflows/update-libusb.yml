@@ -1,0 +1,301 @@
+name: Update libusb
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: Upstream branch, tag, or full 40-character commit SHA
+        required: true
+        default: master
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: update-libusb
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update libusb and open a draft PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+      UPSTREAM_URL: https://github.com/libusb/libusb.git
+
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Resolve and verify the upstream ref
+        id: upstream
+        shell: bash
+        env:
+          REQUESTED_REF: ${{ inputs.upstream_ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$REQUESTED_REF" || "$REQUESTED_REF" == *$'\n'* || "$REQUESTED_REF" == *$'\r'* ]]; then
+            echo "::error title=Invalid upstream ref::The upstream ref must be non-empty and contain no line breaks."
+            exit 1
+          fi
+
+          if [[ "$REQUESTED_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            requested_sha="${REQUESTED_REF,,}"
+            git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$requested_sha"
+            target_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+
+            if [[ "$target_sha" != "$requested_sha" ]]; then
+              echo "::error title=Invalid commit SHA::The requested object does not resolve to that exact commit."
+              exit 1
+            fi
+          else
+            case "$REQUESTED_REF" in
+              refs/heads/*|refs/tags/*)
+                git check-ref-format "$REQUESTED_REF" >/dev/null || {
+                  echo "::error title=Invalid upstream ref::$REQUESTED_REF is not a valid Git ref."
+                  exit 1
+                }
+                selected_ref="$REQUESTED_REF"
+                ;;
+              refs/*)
+                echo "::error title=Unsupported upstream ref::Use refs/heads/... or refs/tags/...."
+                exit 1
+                ;;
+              -*)
+                echo "::error title=Invalid upstream ref::An upstream ref cannot start with a dash."
+                exit 1
+                ;;
+              *)
+                git check-ref-format "refs/heads/$REQUESTED_REF" >/dev/null || {
+                  echo "::error title=Invalid upstream ref::$REQUESTED_REF is not a valid branch or tag name."
+                  exit 1
+                }
+
+                remote_refs="$(git ls-remote --refs "$UPSTREAM_URL")"
+                branch_ref="refs/heads/$REQUESTED_REF"
+                tag_ref="refs/tags/$REQUESTED_REF"
+                branch_object="$(awk -v ref="$branch_ref" '$2 == ref { print $1; exit }' <<< "$remote_refs")"
+                tag_object="$(awk -v ref="$tag_ref" '$2 == ref { print $1; exit }' <<< "$remote_refs")"
+
+                if [[ -n "$branch_object" && -n "$tag_object" ]]; then
+                  echo "::error title=Ambiguous upstream ref::$REQUESTED_REF is both a branch and a tag; qualify it with refs/heads/ or refs/tags/."
+                  exit 1
+                elif [[ -n "$branch_object" ]]; then
+                  selected_ref="$branch_ref"
+                elif [[ -n "$tag_object" ]]; then
+                  selected_ref="$tag_ref"
+                else
+                  echo "::error title=Unknown upstream ref::No libusb branch or tag named $REQUESTED_REF was found. Use a full 40-character SHA for commits."
+                  exit 1
+                fi
+                ;;
+            esac
+
+            git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$selected_ref"
+            target_sha="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+          fi
+
+          git cat-file -e "$target_sha:configure.ac"
+          git cat-file -e "$target_sha:libusb/core.c"
+
+          previous_sha="$(tr -d '\r\n' < .github/libusb-upstream.rev)"
+          if [[ ! "$previous_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid revision lock::.github/libusb-upstream.rev must contain one full lowercase commit SHA."
+            exit 1
+          fi
+
+          if ! git cat-file -e "$previous_sha^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 "$UPSTREAM_URL" "$previous_sha"
+          fi
+
+          current_tree="$(git rev-parse 'HEAD:libusb')"
+          locked_tree="$(git rev-parse "$previous_sha^{tree}")"
+          if [[ "$current_tree" != "$locked_tree" ]]; then
+            echo "::error title=Vendored tree was edited::libusb/ no longer matches .github/libusb-upstream.rev; reconcile the local changes before replacing it."
+            exit 1
+          fi
+
+          {
+            echo "sha=$target_sha"
+            echo "short_sha=${target_sha:0:12}"
+            echo "previous_sha=$previous_sha"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Resolved libusb revision"
+            echo
+            echo "- Requested ref: \`$REQUESTED_REF\`"
+            echo "- Current commit: [\`${previous_sha:0:12}\`](https://github.com/libusb/libusb/commit/$previous_sha)"
+            echo "- Target commit: [\`${target_sha:0:12}\`](https://github.com/libusb/libusb/commit/$target_sha)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Plan the update
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_SHA: ${{ steps.upstream.outputs.previous_sha }}
+          TARGET_SHA: ${{ steps.upstream.outputs.sha }}
+          SHORT_SHA: ${{ steps.upstream.outputs.short_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$PREVIOUS_SHA" == "$TARGET_SHA" ]]; then
+            echo "should_update=false" >> "$GITHUB_OUTPUT"
+            echo "libusb/ is already at the requested commit; no PR is needed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          marker="<!-- libusb-upstream-commit: $TARGET_SHA -->"
+          existing_pr="$(
+            gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state open \
+              --limit 100 \
+              --json body,headRefName,headRepositoryOwner,url \
+              --jq "map(select(
+                .headRepositoryOwner.login == \"$GITHUB_REPOSITORY_OWNER\" and
+                (.headRefName | startswith(\"update-libusb-\")) and
+                ((.body // \"\") | contains(\"$marker\"))
+              )) | .[0].url // \"\""
+          )"
+
+          if [[ -n "$existing_pr" ]]; then
+            existing_branch="$(
+              gh pr view "$existing_pr" \
+                --repo "$GITHUB_REPOSITORY" \
+                --json headRefName \
+                --jq .headRefName
+            )"
+            gh workflow run builds.yml --ref "$existing_branch"
+            echo "should_update=false" >> "$GITHUB_OUTPUT"
+            echo "An update PR for this commit is already open: $existing_pr. CI was dispatched again for \`$existing_branch\`." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          branch="update-libusb-${SHORT_SHA}"
+          remote_branch="$(git ls-remote --heads "https://github.com/$GITHUB_REPOSITORY.git" "refs/heads/$branch")"
+          if [[ -n "$remote_branch" ]]; then
+            echo "::error title=Update branch already exists::$branch exists without an open PR. Inspect or delete it before rerunning the workflow."
+            exit 1
+          fi
+
+          {
+            echo "branch=$branch"
+            echo "should_update=true"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Import the upstream tree
+        if: steps.plan.outputs.should_update == 'true'
+        env:
+          ACTOR_ID: ${{ github.actor_id }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          REQUESTED_REF: ${{ inputs.upstream_ref }}
+          TARGET_SHA: ${{ steps.upstream.outputs.sha }}
+          SHORT_SHA: ${{ steps.upstream.outputs.short_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "${ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git switch --create "$BRANCH"
+
+          # A squashed git-subtree pull still creates a merge commit. Import the
+          # same upstream tree directly so the PR remains compatible with the
+          # repository's required linear history.
+          git rm -r --quiet -- libusb
+          git read-tree --prefix=libusb/ -u "$TARGET_SHA^{tree}"
+          printf '%s\n' "$TARGET_SHA" > .github/libusb-upstream.rev
+          git add .github/libusb-upstream.rev
+
+          staged_root="$(git write-tree)"
+          imported_tree="$(git rev-parse "$staged_root:libusb")"
+          upstream_tree="$(git rev-parse "$TARGET_SHA^{tree}")"
+          if [[ "$imported_tree" != "$upstream_tree" ]]; then
+            echo "::error title=Import verification failed::The staged libusb/ tree differs from upstream."
+            exit 1
+          fi
+
+          unexpected_paths="$(git diff --cached --name-only | grep -Ev '^(libusb/|\.github/libusb-upstream\.rev$)' || true)"
+          if [[ -n "$unexpected_paths" ]]; then
+            echo "::error title=Unexpected changed paths::The import changed files outside libusb/ and its revision lock."
+            printf '%s\n' "$unexpected_paths"
+            exit 1
+          fi
+
+          git diff --cached --check
+
+          message_file="$(mktemp)"
+          {
+            echo "Update libusb to $REQUESTED_REF ($SHORT_SHA)"
+            echo
+            echo "Import the exact tree from libusb/libusb at $TARGET_SHA."
+            echo
+            echo "Libusb-Upstream-Ref: $REQUESTED_REF"
+            echo "Libusb-Upstream-Commit: $TARGET_SHA"
+            echo "Assisted-by: codex:gpt-5"
+          } > "$message_file"
+          git commit --file "$message_file"
+
+      - name: Push the branch, open a draft PR, and start CI
+        if: steps.plan.outputs.should_update == 'true'
+        env:
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_SHA: ${{ steps.upstream.outputs.previous_sha }}
+          REQUESTED_REF: ${{ inputs.upstream_ref }}
+          TARGET_SHA: ${{ steps.upstream.outputs.sha }}
+          SHORT_SHA: ${{ steps.upstream.outputs.short_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh auth setup-git
+          git push --set-upstream origin "HEAD:refs/heads/$BRANCH"
+
+          body_file="$(mktemp)"
+          cat > "$body_file" <<EOF
+          This draft PR updates the vendored \`libusb/\` tree from upstream.
+
+          - Requested ref: \`$REQUESTED_REF\`
+          - Previous commit: [\`${PREVIOUS_SHA:0:12}\`](https://github.com/libusb/libusb/commit/$PREVIOUS_SHA)
+          - Resolved commit: [\`$TARGET_SHA\`](https://github.com/libusb/libusb/commit/$TARGET_SHA)
+          - Workflow run: [$GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+
+          The workflow verified that \`libusb/\` matches the resolved upstream tree byte-for-byte. The full revision is also recorded in \`.github/libusb-upstream.rev\` so it remains available if the final commit message is edited while merging.
+
+          <!-- libusb-upstream-commit: $TARGET_SHA -->
+
+          Assisted-by: codex:gpt-5
+          EOF
+
+          pr_url="$(
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base "$BASE_BRANCH" \
+              --head "$BRANCH" \
+              --draft \
+              --title "Update libusb to $REQUESTED_REF ($SHORT_SHA)" \
+              --body-file "$body_file"
+          )"
+
+          gh workflow run builds.yml --ref "$BRANCH"
+
+          {
+            echo
+            echo "### Draft pull request"
+            echo
+            echo "$pr_url"
+            echo
+            echo "The CI workflow was dispatched for \`$BRANCH\`."
+          } >> "$GITHUB_STEP_SUMMARY"
