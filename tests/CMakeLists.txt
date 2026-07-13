@@ -6,7 +6,7 @@ project(tests
 get_filename_component(TESTS_ROOT "${LIBUSB_ROOT}/../tests" ABSOLUTE)
 
 add_library(libusb_tests_build_interface INTERFACE)
-target_link_libraries(libusb_tests_build_interface INTERFACE usb-1.0)
+target_link_libraries(libusb_tests_build_interface INTERFACE libusb::usb-1.0)
 target_include_directories(libusb_tests_build_interface INTERFACE "${LIBUSB_GEN_INCLUDES}")
 target_compile_definitions(libusb_tests_build_interface INTERFACE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 
@@ -81,4 +81,28 @@ endif()
 # which is only available in static builds
 if(APPLE AND NOT LIBUSB_BUILD_SHARED_LIBS)
     add_libusb_test(macos "macos.c")
+endif()
+
+if(LIBUSB_IS_TOP_LEVEL
+        AND LIBUSB_INSTALL_TARGETS
+        AND LIBUSB_EXPORT_INSTALL_TARGETS)
+    add_test(NAME cmake_package
+        COMMAND "${CMAKE_COMMAND}"
+            "-DTEST_BUILD_DIR=${CMAKE_BINARY_DIR}"
+            "-DTEST_CMAKE_PACKAGE_DIR=${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+            "-DTEST_SOURCE_DIR=${CMAKE_CURRENT_LIST_DIR}/package"
+            "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/package-test"
+            "-DTEST_GENERATOR=${CMAKE_GENERATOR}"
+            "-DTEST_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
+            "-DTEST_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
+            "-DTEST_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+            "-DTEST_CONFIG=$<CONFIG>"
+            "-DTEST_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}"
+            "-DTEST_CTEST_COMMAND=${CMAKE_CTEST_COMMAND}"
+            "-DTEST_PACKAGE_VERSION=${LIBUSB_VERSION}"
+            "-DTEST_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+            "-DTEST_ANDROID_ABI=${ANDROID_ABI}"
+            "-DTEST_ANDROID_PLATFORM=${ANDROID_PLATFORM}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/package/run.cmake"
+    )
 endif()

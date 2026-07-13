@@ -25,9 +25,9 @@ Linux, Android, macOS, NetBSD, OpenBSD, SunOS/illumos, and Emscripten/WebUSB.
 
 ## Use cases
 
-Source-based integrations expose the `usb-1.0` target. Linking it supplies the
-required include paths and platform libraries; include the API as
-`#include <libusb.h>`.
+All integration modes expose `libusb::usb-1.0`. Linking it supplies the required
+include paths and platform libraries; include the API as `#include <libusb.h>`.
+The source-only `usb-1.0` target remains available for compatibility.
 
 ### Vendored source
 
@@ -39,7 +39,7 @@ set(LIBUSB_INSTALL_TARGETS OFF)
 add_subdirectory(third_party/libusb-cmake)
 
 add_executable(my_app main.c)
-target_link_libraries(my_app PRIVATE usb-1.0)
+target_link_libraries(my_app PRIVATE libusb::usb-1.0)
 ```
 
 Keep `LIBUSB_INSTALL_TARGETS` enabled if the host project should also install
@@ -60,7 +60,7 @@ FetchContent_Declare(libusb_cmake
 FetchContent_MakeAvailable(libusb_cmake)
 
 add_executable(my_app main.c)
-target_link_libraries(my_app PRIVATE usb-1.0)
+target_link_libraries(my_app PRIVATE libusb::usb-1.0)
 ```
 
 `FetchContent` downloads during CMake configuration. Vendor the repository when
@@ -69,14 +69,43 @@ configuration must work without network access.
 ### Standalone build and install
 
 ```console
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLIBUSB_BUILD_SHARED_LIBS=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/install -DLIBUSB_BUILD_SHARED_LIBS=ON
 cmake --build build --config Release
-cmake --install build --config Release --prefix /path/to/install
+cmake --install build --config Release
 ```
 
 Configure with `-DLIBUSB_BUILD_SHARED_LIBS=OFF` for a static library. Add
 `-DLIBUSB_BUILD_EXAMPLES=ON` or `-DLIBUSB_BUILD_TESTING=ON` at configuration
 time to build the bundled examples or tests.
+
+### Installed CMake package
+
+Configure the consuming project with `-DCMAKE_PREFIX_PATH=/path/to/install`
+when the installation prefix is not in a standard location, then use:
+
+```cmake
+find_package(libusb CONFIG REQUIRED)
+
+add_executable(my_app main.c)
+target_link_libraries(my_app PRIVATE libusb::usb-1.0)
+```
+
+`libusb::include` carries only the public include directory for targets that do
+not link libusb. Normal consumers should use `libusb::usb-1.0`.
+
+### pkg-config
+
+The installed module uses the upstream name `libusb-1.0`. For a nonstandard
+prefix, add its pkg-config directory to `PKG_CONFIG_PATH`:
+
+```console
+export PKG_CONFIG_PATH=/path/to/install/lib/pkgconfig
+cc main.c -o my_app $(pkg-config --cflags --libs libusb-1.0)
+```
+
+Use `pkg-config --static` when linking the static archive so its private system
+libraries are included. The `.pc` file records the configure-time install
+prefix, so set `CMAKE_INSTALL_PREFIX` during configuration as shown above.
 
 ## CMake options
 
@@ -85,8 +114,8 @@ time to build the bundled examples or tests.
 | `LIBUSB_BUILD_SHARED_LIBS` | Current `BUILD_SHARED_LIBS` value; `OFF` if false or unset | Build a shared instead of static library |
 | `LIBUSB_BUILD_EXAMPLES` | `OFF` | Build bundled examples |
 | `LIBUSB_BUILD_TESTING` | `OFF` | Build and register tests |
-| `LIBUSB_INSTALL_TARGETS` | `ON` | Install the library and public header |
-| `LIBUSB_EXPORT_INSTALL_TARGETS` | `ON` when installing | Install CMake target export and version files |
+| `LIBUSB_INSTALL_TARGETS` | `ON` | Install the library, public header, and pkg-config metadata |
+| `LIBUSB_EXPORT_INSTALL_TARGETS` | `ON` when installing | Install the CMake package config, target export, and version file |
 | `LIBUSB_TARGETS_INCLUDE_USING_SYSTEM` | `ON` | Treat public libusb headers as system headers |
 | `LIBUSB_ENABLE_LOGGING` | `ON` | Compile logging support |
 | `LIBUSB_ENABLE_DEBUG_LOGGING` | `OFF` | Enable debug logging |
@@ -97,16 +126,13 @@ Set options before `add_subdirectory()` or `FetchContent_MakeAvailable()`. When
 the library type matters, set `LIBUSB_BUILD_SHARED_LIBS` explicitly; the global
 `BUILD_SHARED_LIBS` value only supplies its initial default.
 
-## Install status
+## Installed files
 
-With the default install/export options, installation emits the library,
-`include/libusb-1.0/libusb.h`, a CMake target export, and a package version file.
-No `libusb-config.cmake` or pkg-config file is generated, so this build does not
-currently provide normal `find_package(libusb CONFIG)` or pkg-config
-consumption. See [issue #38] and [issue #39]. Prefer source integration until
-the package config is complete.
+The default installation includes the library, `include/libusb-1.0/libusb.h`,
+the `libusb` CMake package under the platform library directory, and
+`${CMAKE_INSTALL_LIBDIR}/pkgconfig/libusb-1.0.pc`. The legacy
+`usb-1.0-targets.cmake` filename is kept as a compatibility wrapper around
+`libusb-targets.cmake`.
 
 [libusb]: https://github.com/libusb/libusb
 [subtree]: https://www.atlassian.com/git/tutorials/git-subtree
-[issue #38]: https://github.com/libusb/libusb-cmake/issues/38
-[issue #39]: https://github.com/libusb/libusb-cmake/issues/39
