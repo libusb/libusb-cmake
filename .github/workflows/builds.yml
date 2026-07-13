@@ -109,13 +109,13 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
+        shell: D:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
 
     steps:
       - name: Configure Git line endings
-        shell: pwsh
+        shell: cmd
         run: git config --global core.autocrlf input
       - uses: actions/checkout@v6
         with:
@@ -123,7 +123,7 @@ jobs:
       - name: Install dependencies
         uses: cygwin/cygwin-install-action@v6
         with:
-          install-dir: 'C:\cygwin'
+          work-vol: 'D:'
           packages: cmake gcc-core ninja
       - name: Configure
         run: |
@@ -261,7 +261,6 @@ jobs:
     runs-on: windows-latest
     env:
       COMMON_CTEST_ARGS: --no-compress-output --output-on-failure
-      VCVARS64_PATH: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
 
     steps:
     - uses: actions/checkout@v6
@@ -269,13 +268,17 @@ jobs:
         path: src
     - name: Install dependencies
       run: choco install ninja
-    - name: Configure Visual Studio
+    - name: Set up MSVC
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
+    - name: Configure Visual Studio/UWP
       run: |
         cmake -B build/msvc -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/msvc -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
+        cmake -B build/uwp -S src -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=install/uwp -DLIBUSB_BUILD_EXAMPLES=OFF -DLIBUSB_BUILD_TESTING=OFF -DLIBUSB_BUILD_SHARED_LIBS=ON
     - name: Configure NMake/Ninja
       shell: cmd
       run: |
-        call "${{ env.VCVARS64_PATH }}"
         cmake -G"NMake Makefiles" -B build\nmake_shared -DCMAKE_INSTALL_PREFIX=install/nmake_shared -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
         cmake -G"NMake Makefiles" -B build\nmake_static -DCMAKE_INSTALL_PREFIX=install/nmake_static -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=OFF
         cmake -GNinja -B build\ninja_shared -DCMAKE_INSTALL_PREFIX=install/ninja_shared -S src -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBUSB_BUILD_EXAMPLES=ON -DLIBUSB_BUILD_TESTING=ON -DLIBUSB_BUILD_SHARED_LIBS=ON
@@ -283,36 +286,34 @@ jobs:
     - name: Build Visual Studio
       working-directory: build/msvc
       run: cmake --build . --config RelWithDebInfo --target install
+    - name: Build UWP
+      working-directory: build/uwp
+      run: cmake --build . --config RelWithDebInfo --target install
     - name: Build NMake Shared
       working-directory: build/nmake_shared
       shell: cmd
-      run: |
-        call "${{ env.VCVARS64_PATH }}"
-        nmake install
+      run: nmake install
     - name: Build NMake Static
       working-directory: build/nmake_static
       shell: cmd
-      run: |
-        call "${{ env.VCVARS64_PATH }}"
-        nmake install
+      run: nmake install
     - name: Build Ninja Shared
       working-directory: build/ninja_shared
       shell: cmd
-      run: |
-        call "${{ env.VCVARS64_PATH }}"
-        ninja install
+      run: ninja install
     - name: Build Ninja Static
       working-directory: build/ninja_static
       shell: cmd
-      run: |
-        call "${{ env.VCVARS64_PATH }}"
-        ninja install
+      run: ninja install
     - name: Check artifacts
       uses: andstor/file-existence-action@v3
       with:
         files: "install/msvc/lib/usb-1.0.lib, \
                 install/msvc/bin/libusb-1.0.dll, \
                 install/msvc/include/libusb-1.0/libusb.h, \
+                install/uwp/lib/usb-1.0.lib, \
+                install/uwp/bin/libusb-1.0.dll, \
+                install/uwp/include/libusb-1.0/libusb.h, \
                 install/nmake_shared/lib/usb-1.0.lib, \
                 install/nmake_shared/bin/libusb-1.0.dll, \
                 install/nmake_shared/include/libusb-1.0/libusb.h, \
