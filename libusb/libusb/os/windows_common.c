@@ -1,3 +1,4 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * windows backend for libusb 1.0
  * Copyright © 2009-2012 Pete Batard <pete@akeo.ie>
@@ -6,6 +7,8 @@
  * HID Reports IOCTLs inspired from HIDAPI by Alan Ott, Signal 11 Software
  * Hash table functions adapted from glibc, by Ulrich Drepper et al.
  * Major code testing contribution by Xiaofan Chen
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -128,8 +131,8 @@ HMODULE load_system_library(struct libusb_context *ctx, const char *name)
 }
 
 /* Hash table functions - modified From glibc 2.3.2:
-   [Aho,Sethi,Ullman] Compilers: Principles, Techniques and Tools, 1986
-   [Knuth]            The Art of Computer Programming, part 3 (6.4)  */
+	[Aho,Sethi,Ullman] Compilers: Principles, Techniques and Tools, 1986
+	[Knuth]            The Art of Computer Programming, part 3 (6.4)  */
 
 #define HTAB_SIZE 1021UL	// *MUST* be a prime number!!
 
@@ -143,9 +146,9 @@ static usbi_mutex_t htab_mutex;
 static unsigned long htab_filled;
 
 /* Before using the hash table we must allocate memory for it.
-   We allocate one element more as the found prime number says.
-   This is done for more effective indexing as explained in the
-   comment for the hash function.  */
+	We allocate one element more as the found prime number says.
+	This is done for more effective indexing as explained in the
+	comment for the hash function.  */
 static bool htab_create(struct libusb_context *ctx)
 {
 	if (htab_table != NULL) {
@@ -186,13 +189,13 @@ static void htab_destroy(void)
 }
 
 /* This is the search function. It uses double hashing with open addressing.
-   We use a trick to speed up the lookup. The table is created with one
-   more element available. This enables us to use the index zero special.
-   This index will never be used because we store the first hash index in
-   the field used where zero means not used. Every other value means used.
-   The used field can be used as a first fast comparison for equality of
-   the stored and the parameter value. This helps to prevent unnecessary
-   expensive calls of strcmp.  */
+	We use a trick to speed up the lookup. The table is created with one
+	more element available. This enables us to use the index zero special.
+	This index will never be used because we store the first hash index in
+	the field used where zero means not used. Every other value means used.
+	The used field can be used as a first fast comparison for equality of
+	the stored and the parameter value. This helps to prevent unnecessary
+	expensive calls of strcmp.  */
 unsigned long htab_hash(const char *str)
 {
 	unsigned long hval, hval2;
@@ -781,7 +784,7 @@ static int windows_get_max_raw_io_transfer_size(struct libusb_device_handle *dev
 	return LIBUSB_ERROR_NOT_SUPPORTED;
 }
 
-static int windows_submit_transfer(struct usbi_transfer *itransfer)
+static int windows_submit_transfer(struct usbi_transfer *itransfer) REQUIRES(itransfer->lock)
 {
 	struct libusb_transfer *transfer = USBI_TRANSFER_TO_LIBUSB_TRANSFER(itransfer);
 	struct libusb_device_handle *dev_handle = transfer->dev_handle;
@@ -856,7 +859,7 @@ static int windows_cancel_transfer(struct usbi_transfer *itransfer)
 	return LIBUSB_ERROR_NOT_SUPPORTED;
 }
 
-static int windows_handle_transfer_completion(struct usbi_transfer *itransfer)
+static int windows_handle_transfer_completion(struct usbi_transfer *itransfer) EXCLUDES(itransfer->lock)
 {
 	struct libusb_context *ctx = ITRANSFER_CTX(itransfer);
 	struct windows_context_priv *priv = usbi_get_context_priv(ctx);

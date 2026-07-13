@@ -1,7 +1,10 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * libusb event abstraction on POSIX platforms
  *
  * Copyright © 2020 Chris Dickens <christopher.a.dickens@gmail.com>
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -220,23 +223,24 @@ int usbi_disarm_timer(usbi_timer_t *timer)
 
 int usbi_alloc_event_data(struct libusb_context *ctx)
 {
-	struct usbi_event_source *ievent_source;
-	struct pollfd *fds;
-	size_t i = 0;
+	free(ctx->event_data);
+	ctx->event_data = NULL;
+	ctx->event_data_cnt = 0;
 
-	if (ctx->event_data) {
-		free(ctx->event_data);
-		ctx->event_data = NULL;
+	unsigned int cnt = 0;
+	struct usbi_event_source *ievent_source;
+	for_each_event_source(ctx, ievent_source)
+		cnt++;
+
+	if (cnt == 0) {
+		return 0;
 	}
 
-	ctx->event_data_cnt = 0;
-	for_each_event_source(ctx, ievent_source)
-		ctx->event_data_cnt++;
-
-	fds = calloc(ctx->event_data_cnt, sizeof(*fds));
+	struct pollfd *fds = (struct pollfd *)calloc(cnt, sizeof(*fds));
 	if (!fds)
 		return LIBUSB_ERROR_NO_MEM;
 
+	size_t i = 0;
 	for_each_event_source(ctx, ievent_source) {
 		fds[i].fd = ievent_source->data.os_handle;
 		fds[i].events = ievent_source->data.poll_events;
@@ -244,13 +248,15 @@ int usbi_alloc_event_data(struct libusb_context *ctx)
 	}
 
 	ctx->event_data = fds;
+	ctx->event_data_cnt = cnt;
+
 	return 0;
 }
 
 int usbi_wait_for_events(struct libusb_context *ctx,
 	struct usbi_reported_events *reported_events, int timeout_ms)
 {
-	struct pollfd *fds = ctx->event_data;
+	struct pollfd *fds = (struct pollfd *)ctx->event_data;
 	usbi_nfds_t nfds = (usbi_nfds_t)ctx->event_data_cnt;
 	int internal_fds, num_ready;
 
