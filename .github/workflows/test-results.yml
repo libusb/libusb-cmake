@@ -12,7 +12,10 @@ jobs:
   publish-test-results:
     name: "Publish Tests Results"
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    if: >-
+      github.event.workflow_run.event != 'workflow_dispatch' &&
+      (github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure')
     permissions:
       checks: write
       pull-requests: write
