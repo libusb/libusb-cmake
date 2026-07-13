@@ -1,3 +1,4 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * Public libusb header file
  * Copyright © 2001 Johannes Erdfelt <johannes@erdfelt.com>
@@ -5,6 +6,9 @@
  * Copyright © 2012 Pete Batard <pete@akeo.ie>
  * Copyright © 2012-2023 Nathan Hjelm <hjelmn@cs.unm.edu>
  * Copyright © 2014-2020 Chris Dickens <christopher.a.dickens@gmail.com>
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ *
  * For more information, please visit: https://libusb.info
  *
  * This library is free software; you can redistribute it and/or
@@ -1051,17 +1055,17 @@ struct libusb_ssplus_sublink_attribute {
 
 	/** This field defines the
 	 base 10 exponent times 3, that shall be applied to the
-     mantissa. */
+	 mantissa. */
 	enum libusb_superspeedplus_sublink_attribute_exponent exponent;
 
 	/** This field identifies whether the
 	 Sublink Speed Attribute defines a symmetric or
-     asymmetric bit rate.*/
+	 asymmetric bit rate.*/
 	enum libusb_superspeedplus_sublink_attribute_sublink_type type;
 
 	/** This field  indicates if this
 	 Sublink Speed Attribute defines the receive or
-     transmit bit rate. */
+	 transmit bit rate. */
 	enum libusb_superspeedplus_sublink_attribute_sublink_direction direction;
 
 	/** This field identifies the protocol
@@ -1069,7 +1073,7 @@ struct libusb_ssplus_sublink_attribute {
 	enum libusb_superspeedplus_sublink_attribute_link_protocol protocol;
 
 	/** This field defines the mantissa that shall be applied to the exponent when
-     calculating the maximum bit rate. */
+	 calculating the maximum bit rate. */
 	uint16_t mantissa;
 };
 
@@ -1206,13 +1210,28 @@ struct libusb_version {
 	/** Library micro version. */
 	uint16_t micro;
 
-	/** Library nano version. */
+	/** Library nano version. Deprecated since 1.0.31: this value is
+	 * frozen and no longer updated per build. Use \ref
+	 * libusb_version::describe for a unique-per-build identifier. */
 	uint16_t nano;
 
 	/** Library release candidate suffix string, e.g. "-rc4". */
 	const char *rc;
 
-	/** For ABI compatibility only. */
+	/** Human-readable build identifier. Examples: "v1.0.30" (release),
+	 * "v1.0.30-42-g77503a7" (git build), "v1.0.30-42-g77503a7-dirty"
+	 * (git build with uncommitted changes), or "Unknown source (...)"
+	 * (built outside both a git checkout and a release tarball).
+	 *
+	 * Guarantees:
+	 *   - never NULL;
+	 *   - intended for display, logs and bug reports; the overall format
+	 *     is not stable, do not parse;
+	 *   - if the string does not start with "Unknown" and does not end
+	 *     with "-dirty", it is a valid revision identifier accepted by
+	 *     `git rev-parse` / `git checkout` against the libusb repository,
+	 *     allowing the exact source tree to be recovered.
+	 */
 	const char *describe;
 };
 
@@ -1677,17 +1696,17 @@ enum libusb_device_string_type {
 
 /** \ingroup libusb_desc
  * The maximum length for a device string descriptor in UTF-8.
- * 
- * 255 max descriptor length with 2 byte header 
+ *
+ * 255 max descriptor length with 2 byte header
  *  => 253 bytes UTF-16LE, no null termination (USB 2.0 9.6.7)
  *  => 126.5 codepoints
  *  => 127 * 3 + 1
  *  => 382 bytes
- * 
+ *
  * Stay with 256 * 3/2 = 384 to be safe.
  */
 #define LIBUSB_DEVICE_STRING_BYTES_MAX  (384U)
- 
+
 /** \ingroup libusb_lib
  * Callback function for handling log messages.
  * \param ctx the context which is related to the log message, or NULL if it
@@ -1707,13 +1726,13 @@ typedef void (LIBUSB_CALL *libusb_log_cb)(libusb_context *ctx,
  *
  */
 struct libusb_init_option {
-  /** Which option to set */
-  enum libusb_option option;
-  /** An integer value used by the option (if applicable). */
-  union {
-    int ival;
-    libusb_log_cb log_cbval;
-  } value;
+	/** Which option to set */
+	enum libusb_option option;
+	/** An integer value used by the option (if applicable). */
+	union {
+		int ival;
+		libusb_log_cb log_cbval;
+	} value;
 };
 
 int LIBUSB_CALL libusb_init(libusb_context **ctx);
@@ -1977,10 +1996,18 @@ static inline void libusb_fill_control_transfer(
 	transfer->endpoint = 0;
 	transfer->type = LIBUSB_TRANSFER_TYPE_CONTROL;
 	transfer->timeout = timeout;
-	transfer->buffer = buffer;
 	if (setup)
-		transfer->length = (int) (LIBUSB_CONTROL_SETUP_SIZE
+	{
+		int length = (int) (LIBUSB_CONTROL_SETUP_SIZE
 			+ libusb_le16_to_cpu(setup->wLength));
+		transfer->buffer = buffer;
+		transfer->length = length;
+	}
+	else
+	{
+		transfer->buffer = NULL;
+		transfer->length = 0;
+	}
 	transfer->user_data = user_data;
 	transfer->callback = callback;
 }

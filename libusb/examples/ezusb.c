@@ -1,9 +1,12 @@
+/* -*- Mode: C; indent-tabs-mode:t ; c-basic-offset:4 -*- */
 /*
  * Copyright © 2001 Stephen Williams (steve@icarus.com)
  * Copyright © 2001-2002 David Brownell (dbrownell@users.sourceforge.net)
  * Copyright © 2008 Roger Williams (rawqux@users.sourceforge.net)
  * Copyright © 2012 Pete Batard (pete@akeo.ie)
  * Copyright © 2013 Federico Manzan (f.manzan@gmail.com)
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -486,8 +489,8 @@ static int parse_iic(FILE *image, void *context,
 
 /* the parse call will be selected according to the image type */
 static int (*parse[IMG_TYPE_MAX])(FILE *image, void *context, bool (*is_external)(uint32_t addr, size_t len),
-           int (*poke)(void *context, uint32_t addr, bool external, const unsigned char *data, size_t len))
-           = { parse_ihex, parse_iic, parse_bin };
+	int (*poke)(void *context, uint32_t addr, bool external, const unsigned char *data, size_t len))
+	= { parse_ihex, parse_iic, parse_bin };
 
 /*****************************************************************************/
 
