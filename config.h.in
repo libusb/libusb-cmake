@@ -31,9 +31,6 @@
 /* #define to 1 if you have the `pthread_threadid_np' function. */
 #cmakedefine HAVE_PTHREAD_THREADID_NP 1
 
-/* #define to 1 if you have the <string.h> header file. */
-#cmakedefine HAVE_STRING_H 1
-
 /* #define to 1 if the system has the type `struct timespec'. */
 #cmakedefine HAVE_STRUCT_TIMESPEC 1
 

@@ -41,23 +41,45 @@ function(generate_config_file)
     include(CheckStructHasMember)
     include(CheckCCompilerFlag)
 
-    check_function_exists(clock_gettime             HAVE_CLOCK_GETTIME)
-    check_function_exists(pthread_condattr_setclock HAVE_PTHREAD_CONDATTR_SETCLOCK)
-    check_function_exists(pthread_setname_np        HAVE_PTHREAD_SETNAME_NP)
-    check_function_exists(pthread_threadid_np       HAVE_PTHREAD_THREADID_NP)
-    check_function_exists(eventfd                   HAVE_EVENTFD)
-    check_function_exists(pipe2                     HAVE_PIPE2)
-    check_function_exists(syslog                    HAVE_SYSLOG)
+    # The Windows backend needs a fallback when clock_gettime is unavailable.
+    # POSIX backends use it too, except on Apple platforms.
+    if(NOT APPLE)
+        check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
+    endif()
 
-    check_include_files(asm/types.h      HAVE_ASM_TYPES_H)
-    check_include_files(sys/eventfd.h    HAVE_EVENTFD)
-    check_include_files(string.h         HAVE_STRING_H)
-    check_include_files(sys/time.h       HAVE_SYS_TIME_H)
+    # The Windows backend needs to know whether it must provide struct timespec.
+    if(WIN32 OR CYGWIN)
+        check_struct_has_member("struct timespec" tv_sec time.h HAVE_STRUCT_TIMESPEC)
+    endif()
 
-    check_symbol_exists(timerfd_create  "sys/timerfd.h" HAVE_TIMERFD)
-    check_symbol_exists(nfds_t  "poll.h" HAVE_NFDS_T)
+    # Cygwin uses the Windows backend but still needs <sys/time.h>.
+    if(NOT WIN32 OR CYGWIN)
+        check_include_files(sys/time.h HAVE_SYS_TIME_H)
+    endif()
 
-    check_struct_has_member("struct timespec" tv_sec time.h HAVE_STRUCT_TIMESPEC)
+    # Android logging does not reach the syslog path in core.c.
+    if((NOT WIN32 OR CYGWIN) AND NOT ANDROID)
+        check_function_exists(syslog HAVE_SYSLOG)
+    endif()
+
+    # These checks control paths compiled only by the POSIX backend.
+    if(NOT (WIN32 OR CYGWIN))
+        check_function_exists(pthread_condattr_setclock HAVE_PTHREAD_CONDATTR_SETCLOCK)
+        check_function_exists(eventfd                   HAVE_EVENTFD)
+        check_function_exists(pipe2                     HAVE_PIPE2)
+
+        check_symbol_exists(timerfd_create "sys/timerfd.h" HAVE_TIMERFD)
+        check_symbol_exists(nfds_t        "poll.h"       HAVE_NFDS_T)
+
+        if(CMAKE_SYSTEM_NAME MATCHES "Linux" OR ANDROID)
+            check_include_files(asm/types.h      HAVE_ASM_TYPES_H)
+            check_function_exists(pthread_setname_np HAVE_PTHREAD_SETNAME_NP)
+        endif()
+
+        if(APPLE)
+            check_function_exists(pthread_threadid_np HAVE_PTHREAD_THREADID_NP)
+        endif()
+    endif()
 
     if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
         check_c_compiler_flag("-fvisibility=hidden" HAVE_VISIBILITY)
