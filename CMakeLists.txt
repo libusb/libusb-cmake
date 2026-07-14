@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(LIBUSB_IS_TOP_LEVEL ON)
+else()
+    set(LIBUSB_IS_TOP_LEVEL OFF)
+endif()
+
 get_filename_component(LIBUSB_SOURCE_ROOT "libusb" ABSOLUTE)
 set(LIBUSB_ROOT "${LIBUSB_SOURCE_ROOT}/libusb")
 
@@ -11,6 +17,8 @@ string(REGEX MATCH "#define LIBUSB_MINOR ([0-9]*)" _ ${VERSIONHEADERDATA})
 set(LIBUSB_VERSION_MINOR ${CMAKE_MATCH_1})
 string(REGEX MATCH "#define LIBUSB_MICRO ([0-9]*)" _ ${VERSIONHEADERDATA})
 set(LIBUSB_VERSION_MICRO ${CMAKE_MATCH_1})
+string(REGEX MATCH "#define LIBUSB_RC \"([^\"]*)\"" _ ${VERSIONHEADERDATA})
+set(LIBUSB_VERSION_RC ${CMAKE_MATCH_1})
 set(LIBUSB_VERSION "${LIBUSB_VERSION_MAJOR}.${LIBUSB_VERSION_MINOR}.${LIBUSB_VERSION_MICRO}")
 
 project(usb-1.0
@@ -135,7 +143,8 @@ endif()
 option(LIBUSB_BUILD_EXAMPLES "Build Example Applications" OFF)
 
 option(LIBUSB_INSTALL_TARGETS "Install libusb targets" ON)
-cmake_dependent_option(LIBUSB_EXPORT_INSTALL_TARGETS "Generate export files for installed targets" ON LIBUSB_INSTALL_TARGETS OFF)
+cmake_dependent_option(LIBUSB_EXPORT_INSTALL_TARGETS "Install CMake package files" ON LIBUSB_INSTALL_TARGETS OFF)
+cmake_dependent_option(LIBUSB_INSTALL_PKGCONFIG "Install pkg-config metadata" ON LIBUSB_INSTALL_TARGETS OFF)
 
 option(LIBUSB_TARGETS_INCLUDE_USING_SYSTEM "Make targets include paths System" ON)
 
@@ -155,6 +164,31 @@ if(LIBUSB_INSTALL_TARGETS)
     # to make sure all variables, like CMAKE_INSTALL_LIBDIR, are initialized
     include(GNUInstallDirs)
 endif()
+
+function(libusb_configure_pc)
+    set(VERSION "${LIBUSB_VERSION}${LIBUSB_VERSION_RC}")
+    set(prefix "${CMAKE_INSTALL_PREFIX}")
+    set(exec_prefix "\${prefix}")
+
+    if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+        set(libdir "${CMAKE_INSTALL_LIBDIR}")
+    else()
+        set(libdir "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
+    endif()
+
+    if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+        set(includedir "${CMAKE_INSTALL_INCLUDEDIR}")
+    else()
+        set(includedir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+    endif()
+
+    string(JOIN " " LIBS ${LIBUSB_PC_LIBS_PRIVATE})
+    configure_file(
+        "${LIBUSB_SOURCE_ROOT}/libusb-1.0.pc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/libusb-1.0.pc"
+        @ONLY
+    )
+endfunction()
 
 set(LIBUSB_GEN_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/gen_include")
 generate_config_file()
@@ -217,7 +251,10 @@ else()
     add_library(usb-1.0 STATIC)
 endif()
 
+add_library(libusb::usb-1.0 ALIAS usb-1.0)
+
 set_target_properties(usb-1.0 PROPERTIES
+    EXPORT_NAME usb-1.0
     PREFIX lib # to be consistent with mainline libusb build system(s)
 )
 
@@ -248,11 +285,20 @@ else()
     set(LIBUSB_SYSTEM_FLAGS)
 endif()
 
-target_include_directories(usb-1.0
-    ${LIBUSB_SYSTEM_FLAGS} PUBLIC
+add_library(libusb_include INTERFACE)
+add_library(libusb::include ALIAS libusb_include)
+set_target_properties(libusb_include PROPERTIES EXPORT_NAME include)
+target_include_directories(libusb_include
+    ${LIBUSB_SYSTEM_FLAGS} INTERFACE
     $<BUILD_INTERFACE:${LIBUSB_ROOT}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0>
 )
+target_link_libraries(usb-1.0 PUBLIC libusb_include)
+
+set(LIBUSB_PRIVATE_LINK_LIBRARIES)
+# Append matching pkg-config flags beside each private CMake link item below.
+set(LIBUSB_PC_LIBS_PRIVATE)
+set(LIBUSB_CONFIG_NEEDS_THREADS OFF)
 
 if(WIN32 OR CYGWIN)
     target_sources(usb-1.0 PRIVATE
@@ -273,10 +319,12 @@ if(WIN32 OR CYGWIN)
 
     if(CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
         # UWP/Store builds require the WindowsApp umbrella library
-        target_link_libraries(usb-1.0 PRIVATE windowsapp)
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES windowsapp)
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -lwindowsapp)
     else()
         # windowsapp pulls in API-set imports unavailable on Windows 7
-        target_link_libraries(usb-1.0 PRIVATE kernel32 user32)
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES kernel32 user32)
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -lkernel32 -luser32)
     endif()
 
     if(LIBUSB_ENABLE_WINDOWS_HOTPLUG)
@@ -304,7 +352,8 @@ else()
             target_sources(usb-1.0 PRIVATE
                 "${LIBUSB_ROOT}/os/linux_udev.c"
             )
-            target_link_libraries(usb-1.0 PRIVATE udev)
+            list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES udev)
+            list(APPEND LIBUSB_PC_LIBS_PRIVATE -ludev)
             target_compile_definitions(usb-1.0 PRIVATE HAVE_LIBUDEV=1)
         else()
             target_sources(usb-1.0 PRIVATE
@@ -312,20 +361,32 @@ else()
             )
         endif()
         find_package(Threads REQUIRED)
-        target_link_libraries(usb-1.0 PRIVATE Threads::Threads)
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES Threads::Threads)
+        if(CMAKE_THREAD_LIBS_INIT)
+            list(APPEND LIBUSB_PC_LIBS_PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+        endif()
+        if(NOT LIBUSB_BUILD_SHARED_LIBS)
+            set(LIBUSB_CONFIG_NEEDS_THREADS ON)
+        endif()
     elseif(ANDROID)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/linux_netlink.c"
             "${LIBUSB_ROOT}/os/linux_usbfs.c"
             "${LIBUSB_ROOT}/os/linux_usbfs.h"
         )
-        target_link_libraries(usb-1.0 PRIVATE android log)
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES android log)
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -landroid -llog)
     elseif(APPLE)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/darwin_usb.c"
             "${LIBUSB_ROOT}/os/darwin_usb.h"
         )
-        target_link_libraries(usb-1.0 PRIVATE
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES
+            "-framework Foundation"
+            "-framework IOKit"
+            "-framework Security"
+        )
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE
             "-framework Foundation"
             "-framework IOKit"
             "-framework Security"
@@ -342,15 +403,27 @@ else()
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/sunos_usb.c"
         )
-        target_link_libraries(usb-1.0 PRIVATE -ldevinfo -lnvpair)
+        list(APPEND LIBUSB_PRIVATE_LINK_LIBRARIES -ldevinfo -lnvpair)
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -ldevinfo -lnvpair)
     elseif(EMSCRIPTEN)
         target_sources(usb-1.0 PRIVATE
             "${LIBUSB_ROOT}/os/emscripten_webusb.cpp"
         )
         target_compile_options(usb-1.0 PRIVATE -pthread)
+        # Embind and Asyncify must reach the final executable.
+        target_link_libraries(usb-1.0 PUBLIC -lembind)
+        target_link_options(usb-1.0 PUBLIC
+            -pthread
+            -sASYNCIFY
+        )
+        list(APPEND LIBUSB_PC_LIBS_PRIVATE -pthread -lembind -sASYNCIFY)
     else()
         message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
     endif()
+endif()
+
+if(LIBUSB_PRIVATE_LINK_LIBRARIES)
+    target_link_libraries(usb-1.0 PRIVATE ${LIBUSB_PRIVATE_LINK_LIBRARIES})
 endif()
 
 if(LIBUSB_BUILD_TESTING)
@@ -364,18 +437,34 @@ endif()
 if(LIBUSB_INSTALL_TARGETS)
     install(FILES "${LIBUSB_ROOT}/libusb.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libusb-1.0")
 
-    install(TARGETS usb-1.0
-        EXPORT usb-1.0-targets
+    install(TARGETS usb-1.0 libusb_include
+        EXPORT libusb-targets
     )
 
+    if(LIBUSB_INSTALL_PKGCONFIG)
+        libusb_configure_pc()
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libusb-1.0.pc"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+        )
+    endif()
+
     if(LIBUSB_EXPORT_INSTALL_TARGETS)
-        install(EXPORT usb-1.0-targets
-            FILE usb-1.0-targets.cmake
+        set(LIBUSB_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/libusb")
+
+        install(EXPORT libusb-targets
+            FILE libusb-targets.cmake
             NAMESPACE libusb::
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+            DESTINATION "${LIBUSB_INSTALL_CMAKEDIR}"
         )
 
         include(CMakePackageConfigHelpers)
+
+        configure_package_config_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libusb-config.cmake.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/libusb-config.cmake"
+            INSTALL_DESTINATION "${LIBUSB_INSTALL_CMAKEDIR}"
+            NO_SET_AND_CHECK_MACRO
+        )
 
         write_basic_package_version_file(
             "${CMAKE_CURRENT_BINARY_DIR}/libusb-config-version.cmake"
@@ -384,8 +473,10 @@ if(LIBUSB_INSTALL_TARGETS)
         )
 
         install(FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/libusb-config.cmake"
             "${CMAKE_CURRENT_BINARY_DIR}/libusb-config-version.cmake"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libusb"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/usb-1.0-targets.cmake"
+            DESTINATION "${LIBUSB_INSTALL_CMAKEDIR}"
         )
     endif()
 endif()

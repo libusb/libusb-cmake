@@ -27,7 +27,7 @@ function(add_libusb_example TEST_NAME)
     endforeach()
     add_executable("${TEST_NAME}" ${SOURCES})
     target_include_directories("${TEST_NAME}" PRIVATE "${LIBUSB_GEN_INCLUDES}")
-    target_link_libraries("${TEST_NAME}" PRIVATE usb-1.0)
+    target_link_libraries("${TEST_NAME}" PRIVATE libusb::usb-1.0)
     target_compile_definitions("${TEST_NAME}" PRIVATE $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS=1>)
 endfunction()
 
