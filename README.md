@@ -9,7 +9,8 @@ Send changes to the bundled library sources to [libusb], not here.
 
 Maintainers can run the **Update libusb** workflow with an upstream branch,
 tag, or full commit SHA. It imports the exact upstream tree, records the
-revision in [.github/libusb-upstream.rev](.github/libusb-upstream.rev), and
+revision in [.libusb-upstream.rev](.libusb-upstream.rev) and the upstream
+description in [.libusb-upstream.describe](.libusb-upstream.describe), and
 opens a draft PR. This keeps updates compatible with the repository's required
 linear history.
 

@@ -195,7 +195,7 @@ generate_config_file()
 
 set(LIBUSB_VERSION_DESCRIBE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/libusb-version-describe")
 set(LIBUSB_VERSION_DESCRIBE_HEADER "${LIBUSB_GEN_INCLUDES}/version_describe.h")
-set(LIBUSB_VERSION_DESCRIBE_LOCK "${CMAKE_CURRENT_SOURCE_DIR}/.github/libusb-upstream.describe")
+set(LIBUSB_VERSION_DESCRIBE_LOCK "${CMAKE_CURRENT_SOURCE_DIR}/.libusb-upstream.describe")
 set(LIBUSB_VERSION_DESCRIBE_SCRIPT "${LIBUSB_SOURCE_ROOT}/build-aux/gen-describe.sh")
 set(LIBUSB_VERSION_DESCRIBE_DEPENDS)
 
