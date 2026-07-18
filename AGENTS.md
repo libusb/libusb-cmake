@@ -46,3 +46,7 @@ session itself should be included, as it is not publicly accessible.
 When a PR fixes an issue or relates to / replaces another issue, the PR description should
 include a reference to the issue number after the main description but before the
 `Assisted-by:` attribution, e.g. `Fixes: #123` or `Closes: #124`.
+
+## GitHub metadata
+
+Do not place files under `.github/` unless GitHub itself, including GitHub Actions, requires that location.

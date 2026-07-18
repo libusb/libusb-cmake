@@ -117,9 +117,9 @@ jobs:
             exit 1
           fi
 
-          previous_sha="$(tr -d '\r\n' < .github/libusb-upstream.rev)"
+          previous_sha="$(tr -d '\r\n' < .libusb-upstream.rev)"
           if [[ ! "$previous_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error title=Invalid revision lock::.github/libusb-upstream.rev must contain one full lowercase commit SHA."
+            echo "::error title=Invalid revision lock::.libusb-upstream.rev must contain one full lowercase commit SHA."
             exit 1
           fi
 
@@ -130,21 +130,21 @@ jobs:
             git -C "$upstream_repo" fetch --no-tags --depth=1 "$UPSTREAM_URL" "$previous_sha"
           fi
 
-          previous_describe="$(tr -d '\r\n' < .github/libusb-upstream.describe)"
+          previous_describe="$(tr -d '\r\n' < .libusb-upstream.describe)"
           if [[ -z "$previous_describe" ]]; then
-            echo "::error title=Invalid description lock::.github/libusb-upstream.describe must contain one git-describe value."
+            echo "::error title=Invalid description lock::.libusb-upstream.describe must contain one git-describe value."
             exit 1
           fi
           described_sha="$(git -C "$upstream_repo" rev-parse --verify "$previous_describe^{commit}" 2>/dev/null || true)"
           if [[ "$described_sha" != "$previous_sha" ]]; then
-            echo "::error title=Description lock mismatch::.github/libusb-upstream.describe does not resolve to .github/libusb-upstream.rev."
+            echo "::error title=Description lock mismatch::.libusb-upstream.describe does not resolve to .libusb-upstream.rev."
             exit 1
           fi
 
           current_tree="$(git rev-parse 'HEAD:libusb')"
           locked_tree="$(git rev-parse "$previous_sha^{tree}")"
           if [[ "$current_tree" != "$locked_tree" ]]; then
-            echo "::error title=Vendored tree was edited::libusb/ no longer matches .github/libusb-upstream.rev; reconcile the local changes before replacing it."
+            echo "::error title=Vendored tree was edited::libusb/ no longer matches .libusb-upstream.rev; reconcile the local changes before replacing it."
             exit 1
           fi
 
@@ -242,9 +242,9 @@ jobs:
           # repository's required linear history.
           git rm -r --quiet -- libusb
           git read-tree --prefix=libusb/ -u "$TARGET_SHA^{tree}"
-          printf '%s\n' "$TARGET_SHA" > .github/libusb-upstream.rev
-          printf '%s\n' "$TARGET_DESCRIBE" > .github/libusb-upstream.describe
-          git add .github/libusb-upstream.rev .github/libusb-upstream.describe
+          printf '%s\n' "$TARGET_SHA" > .libusb-upstream.rev
+          printf '%s\n' "$TARGET_DESCRIBE" > .libusb-upstream.describe
+          git add .libusb-upstream.rev .libusb-upstream.describe
 
           staged_root="$(git write-tree)"
           imported_tree="$(git rev-parse "$staged_root:libusb")"
@@ -254,9 +254,9 @@ jobs:
             exit 1
           fi
 
-          unexpected_paths="$(git diff --cached --name-only | grep -Ev '^(libusb/|\.github/libusb-upstream\.(rev|describe)$)' || true)"
+          unexpected_paths="$(git diff --cached --name-only | grep -Ev '^(libusb/|\.libusb-upstream\.(rev|describe)$)' || true)"
           if [[ -n "$unexpected_paths" ]]; then
-            echo "::error title=Unexpected changed paths::The import changed files outside libusb/ and its revision lock."
+            echo "::error title=Unexpected changed paths::The import changed files outside libusb/ and its upstream locks."
             printf '%s\n' "$unexpected_paths"
             exit 1
           fi
@@ -302,7 +302,7 @@ jobs:
           - Upstream description: \`$TARGET_DESCRIBE\`
           - Workflow run: [$GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
 
-          The workflow verified that \`libusb/\` matches the resolved upstream tree byte-for-byte. The full revision and its \`git describe\` value are recorded in \`.github/libusb-upstream.rev\` and \`.github/libusb-upstream.describe\` for the CMake build.
+          The workflow verified that \`libusb/\` matches the resolved upstream tree byte-for-byte. The full revision and its \`git describe\` value are recorded in \`.libusb-upstream.rev\` and \`.libusb-upstream.describe\` for the CMake build.
 
           <!-- libusb-upstream-commit: $TARGET_SHA -->
 
